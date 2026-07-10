@@ -296,7 +296,8 @@ function boot(){
   const saved = load(h.room);
   if(saved && saved.role && saved.role!==h.role){ renderRoleGuard(saved,h); return; }
   if(saved){ S=Object.assign({myCom:{},theirCom:{}},saved); S.role=h.role; } else { S.room=h.room; S.role=h.role; }
-  if(h.q && h.q>=1 && h.q<=N) S.idx=h.q-1;
+  if(location.hash.endsWith("/done")) S.idx=N;
+  else if(h.q && h.q>=1 && h.q<=N) S.idx=h.q-1;
   store(); connect();
   $("#connpill").classList.remove("hide");
   if(!S.intro_done) renderWelcome(); else render();
@@ -499,7 +500,8 @@ function officialForm(ansMap){
 }
 function renderResults(){
   VIEW="results";
-  setHash(); store();
+  history.replaceState(null,"",`#r/${S.room}/${S.role}/done`);   // reload/return lands back on results
+  store();
   const p=partner();
   const meDone=countAns(S.mine)===N, sheDone=countAns(S.theirs)===N;
   const me=meDone?finalScore(S.mine):null, her=sheDone?finalScore(S.theirs):null;
