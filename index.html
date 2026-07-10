@@ -3,145 +3,172 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#fff7fb">
-<title>Political Compass — Two of Us</title>
-<meta property="og:title" content="Political Compass — Two of Us">
-<meta property="og:description" content="Answer together, reveal each other's answers, discuss — then get your official results.">
+<meta name="theme-color" content="#fff9e8">
+<title>POLITICAL DISCUSSION</title>
+<meta property="og:title" content="POLITICAL DISCUSSION">
+<meta property="og:description" content="Lemon and Sol discuss politics. Answer, reveal, argue — then get your official Political Compass results.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍋</text></svg>">
 <style>
-/* ── design tokens (fortune-cookie skin lands here) ─────────────── */
+/* ── design tokens — cartoon sticker / rainbow style ────────────── */
 :root{
-  --bg:#fff7fb; --bg2:#f3f0ff; --card:#ffffff; --ink:#3d3350; --faint:#8d84a3;
-  --line:#eee4f2; --shadow:0 10px 30px rgba(120,80,160,.10);
-  --lemon:#f7d64a; --lemon-deep:#e0b62e; --girl:#f79ac0; --girl-deep:#e0729f;
-  --r1:#ff9aa2; --r2:#ffb347; --r3:#f7d64a; --r4:#9ee09e; --r5:#9ec1f7; --r6:#c79af7;
-  --rainbow:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5),var(--r6));
-  --agree:#57b26a; --differ:#b28ad6;
-  --font-display:"Baskerville","Palatino","Georgia",serif;
-  --font-ui:-apple-system,"SF Pro Rounded","Segoe UI",system-ui,sans-serif;
-  --radius:18px;
+  --paper:#fff9e8; --card:#ffffff; --ink:#1c1c1c; --faint:#6b6357;
+  --line:#1c1c1c; --hard:4px 5px 0 rgba(28,28,28,.9); --hard-sm:3px 3px 0 rgba(28,28,28,.85);
+  --rb-red:#e8433f; --rb-orange:#f2792f; --rb-yellow:#f4c93c; --rb-green:#57a94e; --rb-blue:#3a7de0; --rb-purple:#6b3fbf;
+  --rainbow:linear-gradient(90deg,var(--rb-red),var(--rb-orange),var(--rb-yellow),var(--rb-green),var(--rb-blue),var(--rb-purple));
+  --lemon:#f4c93c; --sol:#3a7de0; --agree:#57a94e; --differ:#6b3fbf;
+  --font:"Comic Sans MS","Comic Sans","Chalkboard SE","Marker Felt","Segoe Print",cursive;
+  --radius:22px;
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:linear-gradient(160deg,var(--bg),var(--bg2) 120%);color:var(--ink);
-  font-family:var(--font-ui);min-height:100%;}
-body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-#app{max-width:520px;margin:0 auto;padding:14px 16px 40px}
-
-/* rainbow shimmer text + bar */
-.rainbow-text{background:var(--rainbow);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;
-  color:transparent;animation:shimmer 6s linear infinite}
-@keyframes shimmer{0%{background-position:0% 0}100%{background-position:300% 0}}
-.rainbow-bar{height:5px;border-radius:3px;background:var(--rainbow);background-size:300% 100%;animation:shimmer 6s linear infinite}
+html,body{margin:0;min-height:100%}
+body{font-family:var(--font);color:var(--ink);background:var(--paper);overflow-x:hidden;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+/* rainbow arcs, like the stickers' backdrop */
+body::before{content:"";position:fixed;inset:0;z-index:-2;background:
+  radial-gradient(150vmax 150vmax at 50% 130%,
+    var(--rb-purple) 0 19vmax, var(--rb-blue) 19vmax 31vmax, var(--rb-green) 31vmax 43vmax,
+    var(--rb-yellow) 43vmax 55vmax, var(--rb-orange) 55vmax 67vmax, var(--rb-red) 67vmax 82vmax,
+    var(--paper) 82vmax)}
+/* paper-ish noise for the marker texture feel */
+body::after{content:"";position:fixed;inset:0;z-index:-1;opacity:.07;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
+#app{max-width:520px;margin:0 auto;padding:12px 14px 44px}
 
 /* header */
-header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 12px}
-.wordmark{font-family:var(--font-display);font-weight:700;font-size:1.15rem;letter-spacing:.02em}
-#connpill{font-size:.72rem;color:var(--faint);border:1px solid var(--line);border-radius:99px;padding:3px 10px;background:var(--card)}
-#connpill.on{color:var(--agree);border-color:#cde8d3}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 2px 10px}
+.wordmark{font-weight:bold;font-size:1.05rem;letter-spacing:.03em;color:#fff;
+  -webkit-text-stroke:1.2px var(--ink);text-shadow:2.5px 2.5px 0 var(--ink);transform:rotate(-1.5deg)}
+#connpill{font-size:.7rem;color:var(--ink);border:2.5px solid var(--ink);border-radius:99px;padding:3px 10px;
+  background:#fff;box-shadow:var(--hard-sm);white-space:nowrap}
+#connpill.on{background:#d7f2cf}
+#connpill.hide{display:none}
 
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin:12px 0}
-h1{font-family:var(--font-display);font-size:clamp(1.9rem,7vw,2.6rem);line-height:1.12;margin:.2em 0}
-h2{font-family:var(--font-display);font-size:1.25rem;margin:.2em 0 .5em}
-p{line-height:1.55}
-.small{font-size:.85rem;color:var(--faint);line-height:1.5}
-.btn{display:block;width:100%;border:none;border-radius:14px;padding:15px 18px;font-size:1.02rem;font-weight:650;
-  font-family:var(--font-ui);cursor:pointer;text-align:center;text-decoration:none;color:var(--ink);
-  background:var(--card);border:1.5px solid var(--line);transition:transform .08s, box-shadow .2s;margin:8px 0}
-.btn:active{transform:scale(.985)}
-.btn.primary{background:var(--rainbow);background-size:300% 100%;animation:shimmer 8s linear infinite;color:#fff;
-  border:none;text-shadow:0 1px 2px rgba(0,0,0,.18);box-shadow:0 8px 22px rgba(200,120,200,.35)}
-.btn.whatsapp{background:#e7f8ec;border-color:#bfe8cc;color:#128c4b}
-.btn.ghost{background:transparent;box-shadow:none}
-.btnrow{display:flex;gap:10px}.btnrow .btn{flex:1}
+.card{background:var(--card);border:3px solid var(--line);border-radius:var(--radius);box-shadow:var(--hard);
+  padding:20px;margin:14px 0;transform:rotate(.4deg)}
+.card:nth-of-type(2n){transform:rotate(-.45deg)}
+h1{font-size:clamp(1.7rem,7.2vw,2.4rem);line-height:1.15;margin:.2em 0;color:#fff;
+  -webkit-text-stroke:1.6px var(--ink);text-shadow:3px 3px 0 var(--ink);letter-spacing:.02em;
+  animation:wob 6s ease-in-out infinite}
+@keyframes wob{0%,100%{transform:rotate(-1.2deg)}50%{transform:rotate(1.1deg)}}
+h2{font-size:1.2rem;margin:.2em 0 .5em}
+p{line-height:1.5}
+.small{font-size:.82rem;color:var(--faint);line-height:1.45}
+.tagline{font-size:1.02rem;font-weight:bold}
+
+.btn{display:block;width:100%;border:3px solid var(--ink);border-radius:16px;padding:14px 16px;font-size:1rem;
+  font-weight:bold;font-family:var(--font);cursor:pointer;text-align:center;text-decoration:none;color:var(--ink);
+  background:#fff;box-shadow:var(--hard-sm);transition:transform .07s, box-shadow .07s;margin:9px 0}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(28,28,28,.85)}
+.btn.primary{background:var(--rainbow);background-size:250% 100%;animation:slide 7s linear infinite;color:#fff;
+  -webkit-text-stroke:.8px var(--ink);text-shadow:1.5px 1.5px 0 var(--ink)}
+@keyframes slide{0%{background-position:0% 0}100%{background-position:250% 0}}
+.btn.whatsapp{background:#c9f3d4}
+.btn.ghost{background:transparent;border-style:dashed;box-shadow:none}
+.btn:disabled{opacity:.4}
+
+/* avatars — the actual stickers */
+.avatar-img{border-radius:50%;border:3px solid var(--ink);box-shadow:0 0 0 4px #fff,4px 4px 0 rgba(28,28,28,.55);
+  object-fit:cover;background:#fff;display:block;margin:0 auto;animation:bob 3.8s ease-in-out infinite}
+.av-sm{width:76px;height:76px}
+.av-md{width:106px;height:106px}
+.av-lg{width:130px;height:130px}
+img.sol{object-position:50% 34%}
+img.lemon{object-position:50% 46%}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-6px) rotate(2deg)}}
 
 /* question screen */
-.qmeta{display:flex;justify-content:space-between;align-items:baseline;font-size:.8rem;color:var(--faint);margin:10px 2px 6px}
-.progress-wrap{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:0 0 4px}
-.progress-wrap>div{height:100%;border-radius:3px;background:var(--rainbow);background-size:300% 100%;animation:shimmer 6s linear infinite;transition:width .4s}
-.section-chip{display:inline-block;font-size:.78rem;background:var(--bg2);border:1px solid var(--line);
-  color:var(--faint);padding:4px 12px;border-radius:99px;margin:8px 0 0;font-style:italic}
-.proposition{font-family:var(--font-display);font-size:clamp(1.25rem,5.4vw,1.6rem);line-height:1.35;margin:14px 4px 6px;
-  quotes:"“" "”";}
-.proposition:before{content:open-quote;color:var(--girl);}
-.proposition:after{content:close-quote;color:var(--girl)}
+.qmeta{display:flex;justify-content:space-between;align-items:baseline;font-size:.78rem;color:var(--faint);margin:8px 2px 6px}
+.progress-wrap{height:12px;border-radius:8px;background:#fff;border:2.5px solid var(--ink);overflow:hidden;box-shadow:var(--hard-sm)}
+.progress-wrap>div{height:100%;background:var(--rainbow);background-size:250% 100%;animation:slide 7s linear infinite;transition:width .4s}
+.section-chip{display:inline-block;font-size:.8rem;background:#fff;border:2.5px dashed var(--ink);
+  padding:5px 14px;border-radius:99px;margin:10px 0 0;transform:rotate(-.8deg);box-shadow:var(--hard-sm)}
+.proposition{font-size:clamp(1.15rem,5vw,1.45rem);line-height:1.4;margin:14px 4px 8px;font-weight:bold}
+.proposition .qq{color:var(--rb-purple)}
 
-/* the two sides */
-.duo{display:flex;gap:10px;margin:14px 0}
-.side{flex:1;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:12px 8px;text-align:center;position:relative;overflow:hidden}
-.side.lemon.me,.side.girl.me{border-color:var(--lemon-deep)}
-.side.girl.me{border-color:var(--girl-deep)}
-.side .who{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-top:6px}
-.side svg.avatar{width:74px;height:74px;animation:bob 3.6s ease-in-out infinite}
-.side.girl svg.avatar{animation-delay:1.8s}
-@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-.pick{margin-top:8px;min-height:34px;display:flex;align-items:center;justify-content:center}
-.chip{display:inline-block;font-size:.82rem;font-weight:700;padding:6px 12px;border-radius:99px;border:1.5px solid}
-.chip.a0{background:#ffe9ec;border-color:#f5b8c0;color:#c2434f}
-.chip.a1{background:#fff1e2;border-color:#f5cf9b;color:#b06c1b}
-.chip.a2{background:#e8f6e9;border-color:#b5dfb9;color:#2e8540}
-.chip.a3{background:#e3f9e6;border-color:#8fd49a;color:#156d2b}
-.chip.wait{background:var(--bg2);border-color:var(--line);color:var(--faint);font-weight:500;font-style:italic}
-.verdict{text-align:center;font-size:.9rem;min-height:22px;margin:2px 0 4px;font-weight:650}
+.duo{display:flex;gap:10px;margin:14px 0 6px}
+.side{flex:1;background:var(--card);border:3px solid var(--line);border-radius:var(--radius);padding:12px 6px;
+  text-align:center;position:relative;box-shadow:var(--hard-sm)}
+.side.L{transform:rotate(-1deg)}.side.G{transform:rotate(1deg)}
+.side.me{background:#fffbe0}
+.side .who{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-top:8px;font-weight:bold}
+.pick{margin-top:7px;min-height:34px;display:flex;align-items:center;justify-content:center}
+.chip{display:inline-block;font-size:.8rem;font-weight:bold;padding:6px 10px;border-radius:99px;border:2.5px solid var(--ink)}
+.chip.a0{background:#ffd7d5}.chip.a1{background:#ffe4c9}.chip.a2{background:#d5eccf}.chip.a3{background:#b8e4b5}
+.chip.wait{background:#f1ece0;border-style:dashed;font-weight:normal;font-style:italic;color:var(--faint)}
+.verdict{text-align:center;font-size:.95rem;min-height:24px;margin:4px 0;font-weight:bold}
 .verdict.agree{color:var(--agree)}
 .verdict.differ{color:var(--differ)}
 
-/* answer buttons */
 .answers{margin:10px 0 4px}
-.abtn{display:flex;align-items:center;gap:10px;width:100%;margin:7px 0;padding:13px 14px;border-radius:14px;
-  font-size:.98rem;font-weight:600;font-family:var(--font-ui);cursor:pointer;color:var(--ink);
-  background:var(--card);border:1.5px solid var(--line);transition:transform .08s}
-.abtn:active{transform:scale(.985)}
-.abtn .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:2px solid}
-.abtn[data-v="0"] .dot{border-color:#c2434f;background:#ffd7dc}
-.abtn[data-v="1"] .dot{border-color:#b06c1b;background:#ffe9cc}
-.abtn[data-v="2"] .dot{border-color:#2e8540;background:#d1eecd}
-.abtn[data-v="3"] .dot{border-color:#156d2b;background:#a9e3b1}
-.abtn.sel{border-width:2.5px;transform:none;font-weight:800}
-.abtn.sel[data-v="0"]{border-color:#c2434f;background:#ffe9ec}
-.abtn.sel[data-v="1"]{border-color:#b06c1b;background:#fff1e2}
-.abtn.sel[data-v="2"]{border-color:#2e8540;background:#e8f6e9}
-.abtn.sel[data-v="3"]{border-color:#156d2b;background:#e3f9e6}
+.abtn{display:flex;align-items:center;gap:10px;width:100%;margin:8px 0;padding:13px 14px;border-radius:14px;
+  font-size:.95rem;font-weight:bold;font-family:var(--font);cursor:pointer;color:var(--ink);
+  background:#fff;border:3px solid var(--ink);box-shadow:var(--hard-sm);transition:transform .07s, box-shadow .07s}
+.abtn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(28,28,28,.85)}
+.abtn .dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;border:2.5px solid var(--ink)}
+.abtn[data-v="0"] .dot{background:var(--rb-red)}
+.abtn[data-v="1"] .dot{background:var(--rb-orange)}
+.abtn[data-v="2"] .dot{background:#8fce74}
+.abtn[data-v="3"] .dot{background:var(--rb-green)}
+.abtn.sel{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(28,28,28,.85)}
+.abtn.sel[data-v="0"]{background:#ffd7d5}.abtn.sel[data-v="1"]{background:#ffe4c9}
+.abtn.sel[data-v="2"]{background:#d5eccf}.abtn.sel[data-v="3"]{background:#b8e4b5}
 
 .navrow{display:flex;gap:10px;margin-top:10px}
 .navrow .btn{flex:1;margin:0}
-.navrow .btn:disabled{opacity:.35}
+
+/* comments — live typing */
+.combox{margin-top:12px}
+.thinking{font-size:.85rem;font-weight:bold;color:var(--rb-purple);min-height:20px;margin:0 4px 4px}
+.thinking .dots::after{content:"";animation:think 1.4s steps(4,end) infinite}
+@keyframes think{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.combubble{background:#eef3ff;border:2.5px solid var(--ink);border-radius:16px;border-bottom-left-radius:4px;
+  padding:10px 12px;font-size:.92rem;margin:4px 0 10px;box-shadow:var(--hard-sm);word-break:break-word;white-space:pre-wrap}
+textarea.mycom{width:100%;font-family:var(--font);font-size:.95rem;border:3px solid var(--ink);border-radius:16px;
+  border-bottom-right-radius:4px;padding:10px 12px;background:#fffbe0;box-shadow:var(--hard-sm);resize:none;min-height:64px}
+textarea.mycom:focus{outline:3px solid var(--rb-blue)}
 
 /* dots nav */
 #dots{display:grid;grid-template-columns:repeat(10,1fr);gap:7px;margin:12px 0}
-.qdot{aspect-ratio:1;border-radius:50%;background:var(--line);border:none;cursor:pointer;font-size:0}
+.qdot{aspect-ratio:1;border-radius:50%;background:#fff;border:2px solid var(--ink);cursor:pointer;font-size:0;padding:0}
 .qdot.mine{background:var(--lemon)}
-.qdot.both{background:var(--agree)}
-.qdot.cur{outline:2.5px solid var(--ink);outline-offset:1.5px}
+.qdot.both{background:var(--rb-green)}
+.qdot.cur{outline:3px solid var(--rb-purple);outline-offset:1.5px}
 
-/* results / compass */
-#compass{width:100%;max-width:420px;display:block;margin:6px auto}
+/* results */
+#compass{width:100%;max-width:420px;display:block;margin:6px auto;border:3px solid var(--ink);border-radius:14px;box-shadow:var(--hard-sm);background:#fff}
 .score-pair{display:flex;gap:10px}
-.score-pair .card{flex:1;text-align:center;margin:6px 0}
-.score-big{font-family:var(--font-display);font-size:1.25rem;font-weight:700}
+.score-pair .card{flex:1;text-align:center;margin:6px 0;padding:14px 8px}
+.score-big{font-size:1.15rem;font-weight:bold}
 
-/* toast + sparkle + confetti */
-#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;
-  padding:10px 18px;border-radius:99px;font-size:.88rem;transition:transform .3s;z-index:50;max-width:88vw;text-align:center}
+/* toast + sparkles + confetti */
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(90px);background:#fff;color:var(--ink);
+  border:3px solid var(--ink);box-shadow:var(--hard-sm);padding:10px 18px;border-radius:99px;font-size:.88rem;font-weight:bold;
+  transition:transform .3s;z-index:50;max-width:88vw;text-align:center}
 #toast.show{transform:translateX(-50%) translateY(0)}
-.sparkle{position:absolute;pointer-events:none;font-size:1rem;animation:sparkfly 900ms ease-out forwards;z-index:5}
-@keyframes sparkfly{0%{opacity:1;transform:translate(0,0) scale(.6)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.25)}}
-.confetti{position:fixed;top:-12px;width:9px;height:14px;z-index:60;pointer-events:none;animation:cfall linear forwards}
-@keyframes cfall{to{transform:translateY(105vh) rotate(720deg)}}
+.sparkle{position:absolute;pointer-events:none;font-size:1.05rem;animation:sparkfly .9s ease-out forwards;z-index:5}
+@keyframes sparkfly{0%{opacity:1;transform:translate(0,0) scale(.6)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.3)}}
+.confetti{position:fixed;top:-14px;width:10px;height:15px;z-index:60;pointer-events:none;border:1.5px solid rgba(28,28,28,.6);animation:cfall linear forwards}
+@keyframes cfall{to{transform:translateY(106vh) rotate(760deg)}}
 
-.linkbox{font-size:.8rem;background:var(--bg2);border:1px dashed var(--line);border-radius:12px;padding:10px;word-break:break-all;color:var(--faint);margin:8px 0}
+.linkbox{font-size:.78rem;background:#fffbe0;border:2.5px dashed var(--ink);border-radius:14px;padding:10px;
+  word-break:break-all;color:var(--faint);margin:8px 0}
+.pickcard{flex:1;background:#fff;border:3px solid var(--ink);border-radius:var(--radius);box-shadow:var(--hard-sm);
+  padding:14px 6px;text-align:center;cursor:pointer;font-family:var(--font)}
+.pickcard.on{background:#fffbe0;transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(28,28,28,.85)}
 .hidden{display:none!important}
-footer{text-align:center;margin-top:26px}
+footer{text-align:center;margin-top:28px}
+footer .small{color:var(--ink);opacity:.75;background:rgba(255,255,255,.75);border-radius:12px;padding:6px 10px;display:inline-block}
+footer a{color:inherit}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <div class="wordmark rainbow-text">🍋 two of us 🎀</div>
-    <div id="connpill">connecting…</div>
+    <div class="wordmark">🍋 POLITICAL DISCUSSION 🫧</div>
+    <div id="connpill" class="hide">connecting…</div>
   </header>
-  <div class="rainbow-bar"></div>
   <main id="screen"></main>
-  <footer class="small">propositions &amp; scoring © <a href="https://www.politicalcompass.org" style="color:inherit">politicalcompass.org</a> · official results are computed by the real site</footer>
+  <footer><span class="small">propositions &amp; scoring © <a href="https://www.politicalcompass.org">politicalcompass.org</a> · official results computed by the real site</span></footer>
 </div>
 <div id="toast"></div>
 
@@ -149,63 +176,38 @@ footer{text-align:center;margin-top:26px}
 <script src="vendor/mqtt.min.js"></script>
 <script>
 "use strict";
-/* ═══════════ avatars ═══════════ */
-const AV_LEMON = `<svg class="avatar" viewBox="0 0 100 100">
- <g>
-  <ellipse cx="50" cy="54" rx="34" ry="27" fill="#f7d64a" stroke="#e0b62e" stroke-width="2.5" transform="rotate(-18 50 54)"/>
-  <path d="M20 36 q-6 -7 -2 -12 q7 -1 9 7" fill="#f7d64a" stroke="#e0b62e" stroke-width="2.5"/>
-  <path d="M82 66 q7 6 4 12 q-8 2 -10 -6" fill="#f7d64a" stroke="#e0b62e" stroke-width="2.5"/>
-  <path d="M30 26 q6 -8 16 -6" fill="none" stroke="#7cb350" stroke-width="3.5" stroke-linecap="round"/>
-  <ellipse cx="42" cy="20" rx="9" ry="5" fill="#8fc45e" stroke="#6da344" stroke-width="2" transform="rotate(-24 42 20)"/>
-  <path d="M36 50 q4 -5 8 0" fill="none" stroke="#5c4a1e" stroke-width="3" stroke-linecap="round"/>
-  <path d="M58 50 q4 -5 8 0" fill="none" stroke="#5c4a1e" stroke-width="3" stroke-linecap="round"/>
-  <path d="M44 62 q7 7 15 0" fill="none" stroke="#5c4a1e" stroke-width="3" stroke-linecap="round"/>
-  <circle cx="32" cy="60" r="4.5" fill="#f8a8a0" opacity=".7"/>
-  <circle cx="70" cy="58" r="4.5" fill="#f8a8a0" opacity=".7"/>
- </g></svg>`;
-const AV_GIRL = `<svg class="avatar" viewBox="0 0 100 100">
- <g>
-  <circle cx="50" cy="55" r="30" fill="#fbe3d2" stroke="#e5b898" stroke-width="2"/>
-  <path d="M20 52 q-2 -34 30 -34 q32 0 30 34 q-1 8 -6 12 q2 -16 -6 -22 q-8 10 -30 8 q-8 4 -8 16 q-8 -4 -10 -14z" fill="#7b4a2d" stroke="#5f3820" stroke-width="2"/>
-  <circle cx="26" cy="30" r="7" fill="#f79ac0" stroke="#e0729f" stroke-width="2"/>
-  <circle cx="38" cy="24" r="7" fill="#f79ac0" stroke="#e0729f" stroke-width="2"/>
-  <circle cx="31" cy="26" r="3.5" fill="#fbc7dd"/>
-  <path d="M38 56 q4 -5 8 0" fill="none" stroke="#4a3226" stroke-width="3" stroke-linecap="round"/>
-  <path d="M58 56 q4 -5 8 0" fill="none" stroke="#4a3226" stroke-width="3" stroke-linecap="round"/>
-  <path d="M45 68 q6 6 13 0" fill="none" stroke="#4a3226" stroke-width="3" stroke-linecap="round"/>
-  <circle cx="33" cy="64" r="4.5" fill="#f8a8a0" opacity=".75"/>
-  <circle cx="69" cy="64" r="4.5" fill="#f8a8a0" opacity=".75"/>
- </g></svg>`;
-
 /* ═══════════ constants + state ═══════════ */
 const Q = PC_DATA.QUESTIONS, N = Q.length, LABELS = PC_DATA.LABELS;
-const ROLES = { L:{key:"L", label:"Lemon", cls:"lemon", av:AV_LEMON}, G:{key:"G", label:"Girl", cls:"girl", av:AV_GIRL} };
+const ROLES = { L:{key:"L", label:"Lemon", emoji:"🍋", img:"assets/lemon.jpg", cls:"lemon"},
+                G:{key:"G", label:"Sol",   emoji:"🫧", img:"assets/sol.jpg",   cls:"sol"} };
 const BROKERS = ["wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt"];
 const TOPIC = (room,role)=>`polduo1/${room}/${role}`;
 
-let S = {            // app state (mirrored to localStorage)
-  room:null, role:null, idx:0, intro_done:false,
-  mine:{},           // qname -> [value, ts]
-  theirs:{},         // qname -> [value, ts]  (cache of partner)
-  celebrated:false
-};
+let S = { room:null, role:null, idx:0, intro_done:false,
+  mine:{}, theirs:{},           // qname -> [value, ts]
+  myCom:{}, theirCom:{},        // qname -> [text, ts]
+  celebrated:false };
 let mq=null, connected=false, brokerIx=0;
+let VIEW="boot";                 // home | share | welcome | flow | results
+let theirTyping=[null,0];        // [qname, ts] ephemeral
 
 const $ = s=>document.querySelector(s);
 const screen = $("#screen");
 const other = r=> r==="L"?"G":"L";
 const store = ()=> localStorage.setItem("polduo:"+S.room, JSON.stringify(S));
 const load  = room=>{ try{ return JSON.parse(localStorage.getItem("polduo:"+room)); }catch(e){ return null; } };
-const esc = t=>{const d=document.createElement("div");d.textContent=t;return d.innerHTML;};
+const esc = t=>{const d=document.createElement("div");d.textContent=t==null?"":String(t);return d.innerHTML;};
 const countAns = m=>Object.keys(m).length;
+const avatar=(rk,size)=>{const r=ROLES[rk];return `<img class="avatar-img ${size} ${r.cls}" src="${r.img}" alt="${r.label}">`;};
+const partner=()=>ROLES[other(S.role)];
 
-/* ═══════════ scoring (exact replica, validated) ═══════════ */
+/* ═══════════ scoring (exact replica of politicalcompass.org — validated) ═══════════ */
 function rawScore(ansMap){
   let e=PC_DATA.BASE[0], s=PC_DATA.BASE[1];
   for(const q of Q){ const a=ansMap[q.name]; if(a!==undefined){ e+=q.w[a[0]][0]; s+=q.w[a[0]][1]; } }
   return [e,s];
 }
-const rhalf = x=> Math.sign(x)*Math.round(Math.abs(x)*100)/100;
+const rhalf = x=> Math.sign(x)*Math.round(Math.abs(x)*100)/100;   // site rounds half away from zero
 function finalScore(ansMap){ const [e,s]=rawScore(ansMap); return [rhalf(e/PC_DATA.DIV[0]), rhalf(s/PC_DATA.DIV[1])]; }
 
 /* ═══════════ sync: MQTT retained + localStorage ═══════════ */
@@ -216,58 +218,75 @@ function connect(){
   try{ if(mq) mq.end(true); }catch(e){}
   mq = mqtt.connect(url,{clientId:"pd_"+S.room+"_"+S.role+"_"+Math.random().toString(36).slice(2,8),
     clean:true, connectTimeout:6000, reconnectPeriod:4000, keepalive:30});
-  let gotOwn=false;
+  let gotOwn=false, fails=0;
   mq.on("connect",()=>{
-    connected=true; setPill("● synced",true);
+    connected=true; fails=0; setPill("● synced",true);
     mq.subscribe(TOPIC(S.room,other(S.role)),{qos:1});
-    mq.subscribe(TOPIC(S.room,S.role),{qos:1});      // recover own cloud state
-    setTimeout(()=>{ publish(); },1200);              // after retained arrive, push merged state
+    mq.subscribe(TOPIC(S.room,S.role),{qos:1});           // recover own cloud state
+    setTimeout(()=>{ publish(); },1500);
   });
   mq.on("message",(t,msg)=>{
     let d; try{ d=JSON.parse(msg.toString()); }catch(e){ return; }
     if(!d||d.v!==1) return;
-    if(t===TOPIC(S.room,S.role)){                     // own retained → merge into mine
-      if(!gotOwn){ gotOwn=true; mergeInto(S.mine,d.ans||{}); store(); render(); }
+    if(t===TOPIC(S.room,S.role)){
+      if(d.self===myTag) return;                          // echo of my own publish
+      mergeInto(S.mine,d.ans||{}); mergeInto(S.myCom,d.com||{});
+      if(!gotOwn){ gotOwn=true; store(); refresh(false); }
       return;
     }
-    const before = countAns(S.theirs);
-    const changedCur = mergeInto(S.theirs, d.ans||{});
+    const beforeA=countAns(S.theirs), beforeC=JSON.stringify(S.theirCom[curQ()]||null);
+    const chAns = mergeInto(S.theirs, d.ans||{});
+    mergeInto(S.theirCom, d.com||{});
+    if(Array.isArray(d.typing)) theirTyping=d.typing;
     store();
-    if(countAns(S.theirs)!==before || changedCur){ render();
-      const cur=Q[S.idx].name;
-      if(S.theirs[cur]!==undefined && S.mine[cur]!==undefined && changedCur) toast("💌 she just answered!");
-    }
+    const cur=curQ();
+    const revealNow = chAns && S.mine[cur]!==undefined && S.theirs[cur]!==undefined;
+    if(revealNow) toast(`💌 ${partner().label} just answered!`);
+    refresh(countAns(S.theirs)!==beforeA || chAns || beforeC!==JSON.stringify(S.theirCom[cur]||null));
   });
-  mq.on("error",()=>{ /* handled by close */ });
-  let fails=0;
-  mq.on("connect",()=>{ fails=0; });
+  mq.on("error",()=>{});
   mq.on("close",()=>{
     if(connected){connected=false; setPill("offline — answers still saved",false);}
-    if(++fails>=4){ brokerIx++; fails=0; connect(); }  // rotate to next broker
+    if(++fails>=4){ brokerIx++; fails=0; connect(); }
   });
 }
-function mergeInto(dst,src){                          // newest-wins per question; returns "current question changed"
-  let changedCur=false; const cur=Q[S.idx]?.name;
+const myTag = Math.random().toString(36).slice(2,10);
+function mergeInto(dst,src){
+  let changedCur=false; const cur=curQ();
   for(const k in src){ const v=src[k];
     if(!Array.isArray(v)||v.length<2) continue;
     if(!dst[k] || v[1]>dst[k][1]){ dst[k]=v; if(k===cur) changedCur=true; }
   }
   return changedCur;
 }
-function publish(){
+let pubT=null;
+function publish(typing){
   if(!mq||!connected) return;
-  mq.publish(TOPIC(S.room,S.role), JSON.stringify({v:1,role:S.role,ans:S.mine,done:countAns(S.mine)===N,updated:Date.now()}),
-    {retain:true,qos:1});
+  mq.publish(TOPIC(S.room,S.role), JSON.stringify({v:1,self:myTag,role:S.role,ans:S.mine,com:S.myCom,
+    typing:typing||[null,0],done:countAns(S.mine)===N,updated:Date.now()}), {retain:true,qos:1});
 }
+function publishSoon(typing){ clearTimeout(pubT); pubT=setTimeout(()=>publish(typing),280); }
+function curQ(){ return Q[S.idx]?Q[S.idx].name:null; }
 function setPill(t,ok){ const p=$("#connpill"); p.textContent=t; p.className=ok?"on":""; }
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ if(mq&&!connected) mq.reconnect?.(); publish(); } });
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.room){ if(mq&&!connected) mq.reconnect?.(); publish(); } });
+
+/* refresh: re-render flow screens only; preserve comment typing */
+function refresh(needed){
+  if(!(VIEW==="flow"||VIEW==="results")) return;
+  if(!needed){ tickThinking(); return; }
+  const ta=$("textarea.mycom"); const hadFocus=ta&&document.activeElement===ta;
+  const val=ta?ta.value:null, selS=ta?ta.selectionStart:0, selE=ta?ta.selectionEnd:0;
+  if(VIEW==="results") renderResults(); else render();
+  const ta2=$("textarea.mycom");
+  if(ta2&&val!==null){ ta2.value=val; if(hadFocus){ ta2.focus(); ta2.setSelectionRange(selS,selE); } }
+}
 
 /* ═══════════ routing ═══════════ */
 function parseHash(){
   const m = location.hash.match(/^#r\/([A-Za-z0-9]+)\/([LG])(?:\/q(\d+))?/);
   return m? {room:m[1],role:m[2],q:m[3]?+m[3]:null} : null;
 }
-function setHash(){ history.replaceState(null,"",`#r/${S.room}/${S.role}/q${S.idx+1}`); }
+function setHash(){ history.replaceState(null,"",`#r/${S.room}/${S.role}/q${Math.min(S.idx+1,N)}`); }
 function link(role){ return location.origin+location.pathname+`#r/${S.room}/${role}`; }
 
 /* ═══════════ boot ═══════════ */
@@ -276,18 +295,20 @@ function boot(){
   if(!h){ renderHome(); return; }
   const saved = load(h.room);
   if(saved && saved.role && saved.role!==h.role){ renderRoleGuard(saved,h); return; }
-  if(saved){ S=saved; S.role=h.role; } else { S.room=h.room; S.role=h.role; }
+  if(saved){ S=Object.assign({myCom:{},theirCom:{}},saved); S.role=h.role; } else { S.room=h.room; S.role=h.role; }
   if(h.q && h.q>=1 && h.q<=N) S.idx=h.q-1;
   store(); connect();
+  $("#connpill").classList.remove("hide");
   if(!S.intro_done) renderWelcome(); else render();
 }
 function renderRoleGuard(saved,h){
+  VIEW="guard";
   const a=ROLES[saved.role], b=ROLES[h.role];
   screen.innerHTML=`<div class="card" style="text-align:center">
     <h2>Hold on — whose link is this? 🤔</h2>
     <p class="small">On this phone you've been answering as <b>${a.label}</b>, but this link belongs to <b>${b.label}</b>. Tapping the wrong person's link would mix up your answers.</p>
-    <button class="btn primary" id="keep">I'm ${a.label} ${a.key==="L"?"🍋":"🎀"} — take me back</button>
-    <button class="btn" id="switch">No really, I'm ${b.label} ${b.key==="L"?"🍋":"🎀"}</button>
+    <button class="btn primary" id="keep">I'm ${a.label} ${a.emoji} — take me back</button>
+    <button class="btn" id="switch">No really, I'm ${b.label} ${b.emoji}</button>
   </div>`;
   $("#keep").onclick=()=>{ location.replace(location.pathname+`#r/${h.room}/${saved.role}`); location.reload(); };
   $("#switch").onclick=()=>{ localStorage.removeItem("polduo:"+h.room); location.reload(); };
@@ -296,63 +317,69 @@ window.addEventListener("hashchange",()=>{ const h=parseHash(); if(h&&h.room!==S
 
 /* ═══════════ screens ═══════════ */
 function renderHome(){
+  VIEW="home";
   screen.innerHTML = `
   <div class="card" style="text-align:center">
-    <h1 class="rainbow-text">the political compass, together</h1>
-    <p>62 propositions. Two phones. Answer each one — your partner's answer is revealed only after you've picked yours. Then pop back to WhatsApp and argue about it. 💬</p>
-    <p class="small">At the end you'll both get your <b>official</b> Political Compass results — computed by the real politicalcompass.org — and see them side by side.</p>
+    <h1>POLITICAL DISCUSSION</h1>
+    <p class="tagline">Lemon and Sol discuss politics. 🍋🫧</p>
+    <p>62 propositions, two phones. Pick your answer — <b>only then</b> is the other one's revealed. Then run back to WhatsApp and argue about it. 💬</p>
+    <p class="small">At the end you both get your <b>official</b> Political Compass results — computed by the real politicalcompass.org — side by side.</p>
   </div>
   <div class="card">
     <h2>Who are you?</h2>
-    <div class="duo">
-      <button class="side lemon me" id="pickL" style="cursor:pointer">${AV_LEMON}<div class="who">Lemon 🍋</div></button>
-      <button class="side girl" id="pickG" style="cursor:pointer">${AV_GIRL}<div class="who">Girl 🎀</div></button>
+    <div style="display:flex;gap:10px">
+      <button class="pickcard on" id="pickL">${avatar("L","av-md")}<div class="who small" style="margin-top:8px"><b>Lemon 🍋</b></div></button>
+      <button class="pickcard" id="pickG">${avatar("G","av-md")}<div class="who small" style="margin-top:8px"><b>Sol 🫧</b></div></button>
     </div>
     <button class="btn primary" id="mkroom">Create our room →</button>
   </div>
   <div class="card small">
-    <b>How saving works:</b> no accounts, nothing to install. Your answers save automatically to this phone <i>and</i> to your shared room in the cloud. You'll each get a personal link — keep it in your WhatsApp chat and tap it any time to jump right back in, even if this window closes. 🌈
+    <b>How saving works:</b> no accounts, nothing to install. Answers save to this phone <i>and</i> to your shared room in the cloud. You each get a personal link — keep it in the WhatsApp chat and tap it any time to jump straight back in, even if this window closes. 🌈
   </div>`;
   let picked="L";
-  const re=()=>{ $("#pickL").classList.toggle("me",picked==="L"); $("#pickG").classList.toggle("me",picked==="G"); };
+  const re=()=>{ $("#pickL").classList.toggle("on",picked==="L"); $("#pickG").classList.toggle("on",picked==="G"); };
   $("#pickL").onclick=()=>{picked="L";re();};
   $("#pickG").onclick=()=>{picked="G";re();};
   $("#mkroom").onclick=()=>{
     const room = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b=>"abcdefghjkmnpqrstuvwxyz23456789"[b%31]).join("");
-    S={room,role:picked,idx:0,intro_done:true,mine:{},theirs:{},celebrated:false};
-    store(); connect(); renderShare();
+    S={room,role:picked,idx:0,intro_done:true,mine:{},theirs:{},myCom:{},theirCom:{},celebrated:false};
+    store(); connect(); $("#connpill").classList.remove("hide"); renderShare();
   };
 }
 
 function renderShare(){
-  const mine = link(S.role), hers = link(other(S.role));
-  const invite = encodeURIComponent(`🍋🎀 Political Compass — the two of us. This one's YOUR link (keep it, tap it to answer): ${hers}`);
+  VIEW="share";
+  const p=partner();
+  const mine = link(S.role), theirs = link(other(S.role));
+  const invite = encodeURIComponent(`🍋🫧 POLITICAL DISCUSSION — Lemon and Sol discuss politics. This one's YOUR link, ${p.label} (keep it, tap it to answer): ${theirs}`);
   screen.innerHTML = `
   <div class="card">
     <h2>Room created ✨</h2>
-    <p class="small"><b>Two personal links.</b> Send your partner theirs, keep yours. Tapping your own link in WhatsApp always brings you back exactly where you left off — that's how progress is saved.</p>
-    <p style="margin-bottom:4px"><b>${ROLES[other(S.role)].label==="Girl"?"🎀 Her":"🍋 Their"} link</b> — send this one:</p>
-    <div class="linkbox">${hers}</div>
-    <a class="btn whatsapp" href="https://wa.me/?text=${invite}">Send her link via WhatsApp 💬</a>
-    <button class="btn" id="cp2">Copy her link</button>
-    <p style="margin-bottom:4px;margin-top:16px"><b>${S.role==="L"?"🍋":"🎀"} Your link</b> — keep it in the chat too:</p>
+    <p class="small"><b>Two personal links.</b> Send ${p.label} theirs, keep yours. Tapping your own link in WhatsApp always brings you back exactly where you left off — that's how progress is saved.</p>
+    <p style="margin-bottom:4px"><b>${p.emoji} ${p.label}'s link</b> — send this one:</p>
+    <div class="linkbox">${theirs}</div>
+    <a class="btn whatsapp" href="https://wa.me/?text=${invite}">Send ${p.label}'s link via WhatsApp 💬</a>
+    <button class="btn" id="cp2">Copy ${p.label}'s link</button>
+    <p style="margin-bottom:4px;margin-top:16px"><b>${ROLES[S.role].emoji} Your link</b> — keep it in the chat too:</p>
     <div class="linkbox">${mine}</div>
     <button class="btn" id="cp1">Copy my link</button>
   </div>
   <button class="btn primary" id="start">Start question 1 →</button>`;
   const copy=(txt,msg)=>navigator.clipboard.writeText(txt).then(()=>toast(msg)).catch(()=>toast("couldn't auto-copy — long-press the link box instead"));
-  $("#cp1").onclick=()=>copy(mine,"your link copied 🍋");
-  $("#cp2").onclick=()=>copy(hers,"her link copied 🎀");
+  $("#cp1").onclick=()=>copy(mine,"your link copied "+ROLES[S.role].emoji);
+  $("#cp2").onclick=()=>copy(theirs,p.label+"'s link copied "+p.emoji);
   $("#start").onclick=()=>{ render(); };
 }
 
 function renderWelcome(){
+  VIEW="welcome";
   const r=ROLES[S.role];
   screen.innerHTML = `
   <div class="card" style="text-align:center">
-    <h1 class="rainbow-text">hello, ${r.label.toLowerCase()}!</h1>
-    <div style="width:96px;margin:0 auto">${r.av}</div>
-    <p>62 propositions about how you see the world. For each one: pick your answer, and <b>only then</b> is your partner's revealed. Agree, clash, then head back to WhatsApp to fight it out. 💬</p>
+    <h1>hello, ${r.label}!</h1>
+    <div style="margin:10px auto">${avatar(S.role,"av-lg")}</div>
+    <p class="tagline">Lemon and Sol discuss politics. 🍋🫧</p>
+    <p>62 propositions about how you see the world. Pick your answer, and <b>only then</b> is ${partner().label}'s revealed. Agree, clash, then head back to WhatsApp to fight it out. 💬</p>
     <p class="small"><b>Saving:</b> automatic — to this phone and to your shared room. Keep your personal link in the chat; tapping it always resumes exactly where you were. No account, nothing to lose.</p>
     <button class="btn primary" id="go">Let's go →</button>
   </div>`;
@@ -362,10 +389,12 @@ function renderWelcome(){
 function render(){
   if(!S.room){ renderHome(); return; }
   if(countAns(S.mine)===N && S.idx>=N){ renderResults(); return; }
-  const q = Q[S.idx], meFirst = S.role==="L";
+  VIEW="flow";
+  const q = Q[S.idx];
   const my = S.mine[q.name], th = S.theirs[q.name];
   const revealed = my!==undefined && th!==undefined;
   const firstOfPage = S.idx===0 || Q[S.idx-1].page!==q.page;
+  const p=partner();
   setHash(); store();
 
   const sideHtml = (roleKey)=>{
@@ -374,8 +403,8 @@ function render(){
     let pick;
     if(isMe) pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">pick below…</span>`;
     else if(my===undefined) pick = a!==undefined? `<span class="chip wait">🔒 answered — yours first!</span>` : `<span class="chip wait">…thinking</span>`;
-    else pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">waiting for them…</span>`;
-    return `<div class="side ${r.cls} ${isMe?"me":""}" id="side${roleKey}">${r.av}
+    else pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">waiting for ${r.label}…</span>`;
+    return `<div class="side ${roleKey} ${isMe?"me":""}" id="side${roleKey}">${avatar(roleKey,"av-sm")}
       <div class="who">${r.label}${isMe?" (you)":""}</div><div class="pick">${pick}</div></div>`;
   };
 
@@ -384,16 +413,29 @@ function render(){
       ? `<div class="verdict agree">you both said “${LABELS[my[0]]}” ✨</div>`
       : `<div class="verdict differ">interesting… time to talk 👀</div>`;
 
+  /* comments: visible only once you've answered this question */
+  let comHtml="";
+  if(my!==undefined){
+    const tc=S.theirCom[q.name];
+    const typingNow = theirTyping[0]===q.name && (Date.now()-theirTyping[1])<5000;
+    comHtml = `<div class="combox">
+      <div class="thinking" id="thinkline">${typingNow?`${p.label} is thinking<span class="dots"></span>`:(tc&&tc[0]?`${p.label} says:`:"")}</div>
+      ${tc&&tc[0]?`<div class="combubble" id="theirbubble">${esc(tc[0])}</div>`:`<div id="theirbubble"></div>`}
+      <textarea class="mycom" maxlength="500" placeholder="say something about this one… 💬"></textarea>
+    </div>`;
+  }
+
   screen.innerHTML = `
-  <div class="qmeta"><span>question ${S.idx+1} / ${N}</span><span>${countAns(S.mine)} answered · her: ${countAns(S.theirs)}</span></div>
+  <div class="qmeta"><span>question ${S.idx+1} / ${N}</span><span>you: ${countAns(S.mine)} · ${p.label}: ${countAns(S.theirs)}</span></div>
   <div class="progress-wrap"><div style="width:${(countAns(S.mine))/N*100}%"></div></div>
   ${firstOfPage?`<div style="text-align:center"><span class="section-chip">${esc(PC_DATA.INTROS[q.page]||("Part "+q.page))}</span></div>`:""}
-  <div class="proposition">${esc(q.text)}</div>
+  <div class="proposition"><span class="qq">“</span>${esc(q.text)}<span class="qq">”</span></div>
   <div class="duo">${sideHtml("L")}${sideHtml("G")}</div>
   ${verdict}
   <div class="answers">${[0,1,2,3].map(v=>`
     <button class="abtn ${my&&my[0]===v?"sel":""}" data-v="${v}"><span class="dot"></span>${LABELS[v]}</button>`).join("")}
   </div>
+  ${comHtml}
   ${revealed?`<a class="btn whatsapp" href="whatsapp://">💬 Return to WhatsApp to discuss</a>`:""}
   <div class="navrow">
     <button class="btn" id="prev" ${S.idx===0?"disabled":""}>← Back</button>
@@ -409,6 +451,14 @@ function render(){
       render();
     };
   });
+  const ta=$("textarea.mycom");
+  if(ta){
+    const mc=S.myCom[q.name]; if(mc) ta.value=mc[0];
+    ta.addEventListener("input",()=>{
+      S.myCom[q.name]=[ta.value,Date.now()]; store();
+      publishSoon([q.name,Date.now()]);
+    });
+  }
   $("#prev").onclick=()=>{ if(S.idx>0){S.idx--; render();} };
   $("#next").onclick=()=>{
     if(S.idx===N-1){ if(countAns(S.mine)===N){ S.idx=N; renderResults(); } else { gotoUnanswered(); } }
@@ -423,6 +473,16 @@ function render(){
     dots.appendChild(d);
   });
 }
+function tickThinking(){                      // light update of the thinking line only
+  const el=$("#thinkline"); if(!el) return;
+  const q=Q[S.idx]; if(!q) return;
+  const p=partner(); const tc=S.theirCom[q.name];
+  const typingNow = theirTyping[0]===q.name && (Date.now()-theirTyping[1])<5000;
+  el.innerHTML = typingNow?`${p.label} is thinking<span class="dots"></span>`:(tc&&tc[0]?`${p.label} says:`:"");
+  const bub=$("#theirbubble");
+  if(bub&&tc&&tc[0]){ bub.className="combubble"; bub.innerHTML=esc(tc[0]); }
+}
+setInterval(tickThinking,1500);
 function gotoUnanswered(){
   const i = Q.findIndex(q=>S.mine[q.name]===undefined);
   if(i>=0){ S.idx=i; toast(`${N-countAns(S.mine)} left — jumped to the next one`); render(); }
@@ -431,27 +491,29 @@ function gotoUnanswered(){
 /* ═══════════ results ═══════════ */
 function officialForm(ansMap){
   const f=document.createElement("form");
-  f.method="POST"; f.action="https://www.politicalcompass.org/test/en";  // same tab: webview-safe; our state persists
+  f.method="POST"; f.action="https://www.politicalcompass.org/test/en";   // same tab: webview-safe
   const add=(n,v)=>{const i=document.createElement("input");i.type="hidden";i.name=n;i.value=v;f.appendChild(i);};
   add("page","7"); add("carried_ec","0"); add("carried_soc","0"); add("populated","");
   for(const q of Q) add(q.name, String(ansMap[q.name][0]));
-  document.body.appendChild(f); f.submit(); f.remove();
+  document.body.appendChild(f); f.submit();
 }
 function renderResults(){
+  VIEW="results";
   setHash(); store();
+  const p=partner();
   const meDone=countAns(S.mine)===N, sheDone=countAns(S.theirs)===N;
   const me=meDone?finalScore(S.mine):null, her=sheDone?finalScore(S.theirs):null;
-  const rMe=ROLES[S.role], rHer=ROLES[other(S.role)];
   if(meDone&&sheDone&&!S.celebrated){ S.celebrated=true; store(); confetti(); }
   screen.innerHTML = `
   <div class="card" style="text-align:center">
-    <h1 class="rainbow-text">the reveal ✨</h1>
-    ${!sheDone?`<p class="small">${rHer.label} is at ${countAns(S.theirs)}/${N} — her dot appears when she's done. This page updates live.</p>`:""}
+    <h1>the reveal ✨</h1>
+    <p class="tagline">Lemon and Sol discuss politics. 🍋🫧</p>
+    ${!sheDone?`<p class="small">${p.label} is at ${countAns(S.theirs)}/${N} — their dot pops in when they're done. This page updates live.</p>`:""}
   </div>
   <div class="score-pair">
-    <div class="card"><div style="width:64px;margin:0 auto">${rMe.av}</div><div class="who small">${rMe.label} (you)</div>
+    <div class="card">${avatar(S.role,"av-sm")}<div class="who small">${ROLES[S.role].label} (you)</div>
       <div class="score-big">${me?`${me[0]} · ${me[1]}`:"—"}</div><div class="small">economic · social</div></div>
-    <div class="card"><div style="width:64px;margin:0 auto">${rHer.av}</div><div class="who small">${rHer.label}</div>
+    <div class="card">${avatar(other(S.role),"av-sm")}<div class="who small">${p.label}</div>
       <div class="score-big">${her?`${her[0]} · ${her[1]}`:"…"}</div><div class="small">economic · social</div></div>
   </div>
   <div class="card">${compassSVG(me,her)}
@@ -460,35 +522,35 @@ function renderResults(){
   <div class="card">
     <h2>Official results</h2>
     <p class="small">These open the real politicalcompass.org with your answers — the official chart, computed by their site.</p>
-    <button class="btn primary" id="offme" ${meDone?"":"disabled"}>Open MY official result 🍋</button>
-    <button class="btn" id="offher" ${sheDone?"":"disabled"}>Open ${rHer.label==="Girl"?"HER":"THEIR"} official result 🎀</button>
+    <button class="btn primary" id="offme" ${meDone?"":"disabled"}>Open MY official result ${ROLES[S.role].emoji}</button>
+    <button class="btn" id="offher" ${sheDone?"":"disabled"}>Open ${p.label.toUpperCase()}'S official result ${p.emoji}</button>
     <a class="btn whatsapp" href="whatsapp://">💬 Back to WhatsApp</a>
   </div>
   <button class="btn ghost small" id="back">← back to the questions</button>`;
   $("#offme").onclick=()=>officialForm(S.mine);
-  $("#offher").onclick=()=>officialForm(S.theirs);
+  $("#offher").onclick=()=>{ if(sheDone) officialForm(S.theirs); };
   $("#back").onclick=()=>{ S.idx=N-1; render(); };
 }
 function compassSVG(me,her){
   const P=(pt)=>[210+pt[0]*19, 210-pt[1]*19];
-  const dot=(pt,fill,stroke,label)=>{ if(!pt)return""; const [x,y]=P(pt);
-    return `<circle cx="${x}" cy="${y}" r="9" fill="${fill}" stroke="${stroke}" stroke-width="3"/>
-      <text x="${x}" y="${y-14}" text-anchor="middle" font-size="15">${label}</text>`;};
+  const img=(pt,rk)=>{ if(!pt)return""; const [x,y]=P(pt); const r=ROLES[rk];
+    return `<circle cx="${x}" cy="${y}" r="15" fill="#fff" stroke="#1c1c1c" stroke-width="2.5"/>
+      <image href="${r.img}" x="${x-13}" y="${y-13}" width="26" height="26" clip-path="circle(13px at 13px 13px)" preserveAspectRatio="xMidYMid slice"/>`;};
   let line="";
   if(me&&her){ const a=P(me),b=P(her);
-    line=`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#c79af7" stroke-width="2.5" stroke-dasharray="5 5"/>`; }
+    line=`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#6b3fbf" stroke-width="2.5" stroke-dasharray="6 5"/>`; }
   return `<svg id="compass" viewBox="0 0 420 420">
-   <rect x="20" y="20" width="190" height="190" fill="#fbd9d3"/><rect x="210" y="20" width="190" height="190" fill="#cfe3f7"/>
-   <rect x="20" y="210" width="190" height="190" fill="#d9efd5"/><rect x="210" y="210" width="190" height="190" fill="#ecdcf5"/>
-   ${[...Array(21)].map((_,i)=>`<line x1="${20+i*19}" y1="20" x2="${20+i*19}" y2="400" stroke="#fff" stroke-width="${i===10?0:1}" opacity=".55"/>
-     <line x1="20" y1="${20+i*19}" x2="400" y2="${20+i*19}" stroke="#fff" stroke-width="${i===10?0:1}" opacity=".55"/>`).join("")}
-   <line x1="210" y1="20" x2="210" y2="400" stroke="#8d84a3" stroke-width="1.5"/>
-   <line x1="20" y1="210" x2="400" y2="210" stroke="#8d84a3" stroke-width="1.5"/>
-   <text x="210" y="14" text-anchor="middle" font-size="12" fill="#8d84a3">Authoritarian</text>
-   <text x="210" y="414" text-anchor="middle" font-size="12" fill="#8d84a3">Libertarian</text>
-   <text x="16" y="213" text-anchor="end" font-size="12" fill="#8d84a3" transform="rotate(-90 16 213)">Left</text>
-   <text x="410" y="213" font-size="12" fill="#8d84a3" transform="rotate(90 410 213)">Right</text>
-   ${line}${dot(me,"#f7d64a","#e0b62e","🍋")}${dot(her,"#f79ac0","#e0729f","🎀")}
+   <rect x="20" y="20" width="190" height="190" fill="#fbd3cd"/><rect x="210" y="20" width="190" height="190" fill="#cfe0f5"/>
+   <rect x="20" y="210" width="190" height="190" fill="#d5ecd0"/><rect x="210" y="210" width="190" height="190" fill="#e5d7f2"/>
+   ${[...Array(21)].map((_,i)=>`<line x1="${20+i*19}" y1="20" x2="${20+i*19}" y2="400" stroke="#fff" stroke-width="${i===10?0:1}" opacity=".6"/>
+     <line x1="20" y1="${20+i*19}" x2="400" y2="${20+i*19}" stroke="#fff" stroke-width="${i===10?0:1}" opacity=".6"/>`).join("")}
+   <line x1="210" y1="20" x2="210" y2="400" stroke="#1c1c1c" stroke-width="1.6"/>
+   <line x1="20" y1="210" x2="400" y2="210" stroke="#1c1c1c" stroke-width="1.6"/>
+   <text x="210" y="14" text-anchor="middle" font-size="13" font-family="Comic Sans MS, Chalkboard SE, cursive">Authoritarian</text>
+   <text x="210" y="416" text-anchor="middle" font-size="13" font-family="Comic Sans MS, Chalkboard SE, cursive">Libertarian</text>
+   <text x="14" y="213" text-anchor="middle" font-size="13" font-family="Comic Sans MS, Chalkboard SE, cursive" transform="rotate(-90 14 213)">Left</text>
+   <text x="407" y="213" text-anchor="middle" font-size="13" font-family="Comic Sans MS, Chalkboard SE, cursive" transform="rotate(90 407 213)">Right</text>
+   ${line}${img(me,S.role)}${img(her,other(S.role))}
   </svg>`;
 }
 
@@ -497,15 +559,15 @@ let toastT;
 function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show");
   clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),2600); }
 function sparkle(host){ if(!host) return;
-  for(let i=0;i<7;i++){ const s=document.createElement("span"); s.className="sparkle"; s.textContent=["✨","💫","⭐️"][i%3];
+  for(let i=0;i<7;i++){ const s=document.createElement("span"); s.className="sparkle"; s.textContent=["✨","💫","🌈"][i%3];
     s.style.left=(30+Math.random()*40)+"%"; s.style.top=(30+Math.random()*30)+"%";
     s.style.setProperty("--dx",(Math.random()*80-40)+"px"); s.style.setProperty("--dy",(-30-Math.random()*50)+"px");
     host.appendChild(s); setTimeout(()=>s.remove(),950); } }
-function confetti(){ const cols=["#ff9aa2","#ffb347","#f7d64a","#9ee09e","#9ec1f7","#c79af7"];
-  for(let i=0;i<90;i++){ const c=document.createElement("div"); c.className="confetti";
+function confetti(){ const cols=["#e8433f","#f2792f","#f4c93c","#57a94e","#3a7de0","#6b3fbf"];
+  for(let i=0;i<100;i++){ const c=document.createElement("div"); c.className="confetti";
     c.style.left=Math.random()*100+"vw"; c.style.background=cols[i%6];
     c.style.animationDuration=(2.2+Math.random()*2.5)+"s"; c.style.animationDelay=(Math.random()*0.9)+"s";
-    c.style.borderRadius=Math.random()>.5?"50%":"2px";
+    c.style.borderRadius=Math.random()>.5?"50%":"3px";
     document.body.appendChild(c); setTimeout(()=>c.remove(),6000); } }
 
 boot();
