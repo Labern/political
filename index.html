@@ -104,6 +104,7 @@ img.lemon{object-position:50% 46%}
 .chip{display:inline-block;font-size:.8rem;font-weight:600;font-family:var(--font-read);padding:6px 10px;border-radius:99px;border:2.5px solid var(--ink)}
 .chip.a0{background:#ffd7d5}.chip.a1{background:#ffe4c9}.chip.a2{background:#d5eccf}.chip.a3{background:#b8e4b5}
 .chip.wait{background:#f1ece0;border-style:dashed;font-weight:normal;font-style:italic;color:var(--faint)}
+.sendstate{font-size:.68rem;color:var(--faint);margin-top:4px;font-family:var(--font-read)}
 .verdict{text-align:center;font-size:.95rem;font-weight:bold;width:fit-content;margin:12px auto;
   background:rgba(255,255,255,.94);border:2.5px solid var(--ink);border-radius:99px;padding:7px 16px;box-shadow:var(--hard-sm)}
 .verdict.agree{color:var(--agree)}
@@ -136,7 +137,8 @@ summary.small{display:inline-block;background:rgba(255,255,255,.88);border-radiu
 .combubble{background:#eef3ff;border:2.5px solid var(--ink);border-radius:16px;border-bottom-left-radius:4px;
   padding:10px 12px;font-size:.92rem;margin:4px 0 10px;box-shadow:var(--hard-sm);word-break:break-word;white-space:pre-wrap}
 textarea.mycom{width:100%;font-family:var(--font);font-size:.95rem;border:3px solid var(--ink);border-radius:16px;
-  border-bottom-right-radius:4px;padding:10px 12px;background:#fffbe0;box-shadow:var(--hard-sm);resize:none;min-height:64px}
+  border-bottom-right-radius:4px;padding:10px 12px;background:#fffbe0;box-shadow:var(--hard-sm);resize:none;
+  min-height:64px;overflow:hidden}
 textarea.mycom:focus{outline:3px solid var(--rb-blue)}
 
 /* dots nav */
@@ -183,7 +185,7 @@ footer a{color:inherit}
     </div>
   </header>
   <main id="screen"></main>
-  <footer><span class="small">propositions &amp; scoring © <a href="https://www.politicalcompass.org">politicalcompass.org</a> · official results computed by the real site · v2</span></footer>
+  <footer><span class="small"><a href="#" id="aboutlink">About</a> · propositions &amp; scoring © <a href="https://www.politicalcompass.org">politicalcompass.org</a> · v2</span></footer>
 </div>
 <div id="toast"></div>
 
@@ -195,14 +197,16 @@ footer a{color:inherit}
 const Q = PC_DATA.QUESTIONS, N = Q.length, LABELS = PC_DATA.LABELS;
 const ROLES = { L:{key:"L", label:"Lemon", emoji:"🍋", img:"assets/lemon.jpg", cls:"lemon"},
                 G:{key:"G", label:"Sol",   emoji:"🫧", img:"assets/sol.jpg",   cls:"sol"} };
-const BROKERS = ["wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt"];
+/* Multiple brokers on different ports: some networks block one port but not another.
+   We race all of them on every connect and keep whichever answers first — see connect(). */
+const BROKERS = ["wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt","wss://test.mosquitto.org:8081/"];
 const TOPIC = (room,role)=>`polduo1/${room}/${role}`;
 
 let S = { room:null, role:null, idx:0, intro_done:false,
   mine:{}, theirs:{},           // qname -> [value, ts]
   myCom:{}, theirCom:{},        // qname -> [text, ts]
   celebrated:false };
-let mq=null, connected=false, brokerIx=0;
+let mq=null, connected=false, sawEverConnected=false;
 let VIEW="boot";                 // home | share | welcome | flow | results
 let theirTyping=[null,0];        // [qname, ts] ephemeral
 
@@ -229,21 +233,41 @@ function rawScore(ansMap){
 const rhalf = x=> Math.sign(x)*Math.round(Math.abs(x)*100)/100;   // site rounds half away from zero
 function finalScore(ansMap){ const [e,s]=rawScore(ansMap); return [rhalf(e/PC_DATA.DIV[0]), rhalf(s/PC_DATA.DIV[1])]; }
 
-/* ═══════════ sync: MQTT retained + localStorage ═══════════ */
+/* ═══════════ sync: MQTT retained + localStorage ═══════════
+   Some networks block a broker's non-standard WSS port but not another's, so every
+   connect() attempt RACES all brokers in parallel and keeps whichever answers first —
+   this finds a working port automatically instead of guessing one. A 7s watchdog
+   restarts the race if none answer; a 20s heartbeat republishes full state while
+   connected, guarding against a public broker silently losing retained messages. */
+let raceClients=[], raceTimer=null, heartbeatTimer=null;
 function connect(){
   if(!S.room) return;
-  const url = BROKERS[brokerIx % BROKERS.length];
+  connected=false; mq=null;
   setPill("connecting…",false);
-  try{ if(mq) mq.end(true); }catch(e){}
-  mq = mqtt.connect(url,{clientId:"pd_"+S.room+"_"+S.role+"_"+Math.random().toString(36).slice(2,8),
-    clean:true, connectTimeout:6000, reconnectPeriod:4000, keepalive:30});
-  let gotOwn=false, fails=0;
-  mq.on("connect",()=>{
-    connected=true; fails=0; setPill("● synced",true);
-    mq.subscribe(TOPIC(S.room,other(S.role)),{qos:1});
-    mq.subscribe(TOPIC(S.room,S.role),{qos:1});           // recover own cloud state
-    setTimeout(()=>{ publish(); },1500);
+  clearTimeout(raceTimer); clearInterval(heartbeatTimer);
+  raceClients.forEach(c=>{ try{ c.removeAllListeners(); c.end(true); }catch(e){} });
+  raceClients=[];
+  BROKERS.forEach(url=>{
+    let c; try{ c = mqtt.connect(url,{clientId:"pd_"+S.room+"_"+S.role+"_"+Math.random().toString(36).slice(2,8),
+      clean:true, connectTimeout:6000, reconnectPeriod:0, keepalive:30}); }catch(e){ return; }
+    raceClients.push(c);
+    c.on("connect",()=>onBrokerWon(c));
+    c.on("error",()=>{});
   });
+  raceTimer=setTimeout(()=>{
+    if(!connected){ setPill(sawEverConnected?"offline — answers still saved":"struggling to connect — try switching wifi/data",false); connect(); }
+  },7000);
+}
+function onBrokerWon(client){
+  if(mq){ try{ client.end(true); }catch(e){} return; }   // a winner was already chosen this round
+  mq=client; connected=true; sawEverConnected=true;
+  clearTimeout(raceTimer);
+  raceClients.filter(c=>c!==client).forEach(c=>{ try{ c.removeAllListeners(); c.end(true); }catch(e){} });
+  setPill("● synced",true);
+  let gotOwn=false;
+  mq.subscribe(TOPIC(S.room,other(S.role)),{qos:1});
+  mq.subscribe(TOPIC(S.room,S.role),{qos:1});             // recover own cloud state
+  setTimeout(()=>{ publish(); },1200);
   mq.on("message",(t,msg)=>{
     let d; try{ d=JSON.parse(msg.toString()); }catch(e){ return; }
     if(!d||d.v!==1) return;
@@ -263,11 +287,10 @@ function connect(){
     if(revealNow) toast(`💌 ${partner().label} just answered!`);
     refresh(countAns(S.theirs)!==beforeA || chAns || beforeC!==JSON.stringify(S.theirCom[cur]||null));
   });
-  mq.on("error",()=>{});
   mq.on("close",()=>{
-    if(connected){connected=false; setPill("offline — answers still saved",false);}
-    if(++fails>=4){ brokerIx++; fails=0; connect(); }
+    if(mq===client){ connected=false; mq=null; clearInterval(heartbeatTimer); setPill("reconnecting…",false); connect(); }
   });
+  heartbeatTimer=setInterval(()=>{ if(connected) publish(); },20000);
 }
 const myTag = Math.random().toString(36).slice(2,10);
 function mergeInto(dst,src){
@@ -281,8 +304,16 @@ function mergeInto(dst,src){
 let pubT=null;
 function publish(typing){
   if(!mq||!connected) return;
-  mq.publish(TOPIC(S.room,S.role), JSON.stringify({v:1,self:myTag,role:S.role,ans:S.mine,com:S.myCom,
-    typing:typing||[null,0],done:answeredAll(S.mine),updated:Date.now()}), {retain:true,qos:1});
+  try{
+    mq.publish(TOPIC(S.room,S.role), JSON.stringify({v:1,self:myTag,role:S.role,ans:S.mine,com:S.myCom,
+      typing:typing||[null,0],done:answeredAll(S.mine),updated:Date.now()}), {retain:true,qos:1});
+  }catch(e){
+    /* mqtt.js can flag a client "disconnecting" internally before its async close
+       event fires, leaving our connected flag briefly stale — never let that throw
+       escape into a click handler (it would abort the render() call right after it,
+       silently freezing the UI). Self-heal: drop the stale state and reconnect now. */
+    connected=false; setPill("reconnecting…",false); connect();
+  }
 }
 function publishSoon(typing){ clearTimeout(pubT); pubT=setTimeout(()=>publish(typing),280); }
 function curQ(){ return Q[S.idx]?Q[S.idx].name:null; }
@@ -293,8 +324,8 @@ function showHeaderLinks(){
   b.onclick=()=>navigator.clipboard.writeText(link(S.role)).then(()=>toast("your link copied "+ROLES[S.role].emoji))
     .catch(()=>toast(link(S.role)));
 }
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.room){ if(mq&&!connected) mq.reconnect?.(); publish(); } });
-window.addEventListener("pageshow",()=>{ if(S.room){ if(mq&&!connected) mq.reconnect?.(); publish(); } });  // bfcache return (e.g. back from official site)
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.room){ if(!connected) connect(); else publish(); } });
+window.addEventListener("pageshow",()=>{ if(S.room){ if(!connected) connect(); else publish(); } });  // bfcache return (e.g. back from official site)
 
 /* refresh: re-render flow screens only; preserve comment typing */
 function refresh(needed){
@@ -304,8 +335,9 @@ function refresh(needed){
   const val=ta?ta.value:null, selS=ta?ta.selectionStart:0, selE=ta?ta.selectionEnd:0;
   if(VIEW==="results") renderResults(); else render();
   const ta2=$("textarea.mycom");
-  if(ta2&&val!==null){ ta2.value=val; if(hadFocus){ ta2.focus(); ta2.setSelectionRange(selS,selE); } }
+  if(ta2&&val!==null){ ta2.value=val; if(hadFocus){ ta2.focus(); ta2.setSelectionRange(selS,selE); } autoGrow(ta2); }
 }
+function autoGrow(ta){ ta.style.height="auto"; ta.style.height=ta.scrollHeight+"px"; }
 
 /* ═══════════ routing ═══════════ */
 function parseHash(){
@@ -359,9 +391,7 @@ function renderHome(){
       <button class="pickcard" id="pickG">${avatar("G","av-md")}<div class="who small" style="margin-top:8px"><b>Sol 🫧</b></div></button>
     </div>
     <button class="btn primary" id="mkroom">Create our room →</button>
-  </div>
-  <button class="btn" id="how">how this works 🌈</button>`;
-  $("#how").onclick=()=>renderHow(renderHome);
+  </div>`;
   let picked="L";
   const re=()=>{ $("#pickL").classList.toggle("on",picked==="L"); $("#pickG").classList.toggle("on",picked==="G"); };
   $("#pickL").onclick=()=>{picked="L";re();};
@@ -408,44 +438,21 @@ function renderWelcome(){
     <p>62 propositions about how you see the world. Pick your answer, and <b>only then</b> is ${partner().label}'s revealed. Agree, clash, then head back to WhatsApp to fight it out. 💬</p>
     <p class="small"><b>Saving:</b> automatic — to this phone and to your shared room. Keep your personal link in the chat; tapping it always resumes exactly where you were. No account, nothing to lose.</p>
     <button class="btn primary" id="go">Let's go →</button>
-    <button class="btn ghost" id="how">how this works 🌈</button>
   </div>`;
   $("#go").onclick=()=>{ S.intro_done=true; store(); render(); };
-  $("#how").onclick=()=>renderHow(renderWelcome);
 }
 
 function renderHow(back){
   VIEW="how";
   screen.innerHTML = `
   <div class="card">
-    <h2>How this works 🌈</h2>
-    <p><b>One question at a time, in order.</b> Pick your answer — <b>only then</b> is the other one's revealed. No peeking, no bias, and <b>no skipping ahead</b> — you can always look back at anything you've already answered. Drop a comment, hop back to WhatsApp to argue, come back for the next one. 62 propositions, 6 parts.</p>
-    <p class="small">Your personal link is always in the header (the 🔗 button) — tap it any time to copy it, in case you need to re-send it or jump back in on another device.</p>
-    <p><b>At the end</b> you both land on one compass — two dots, side by side — and each of you can open your <b>official</b> result, computed by the real politicalcompass.org from your actual answers.</p>
+    <h2>About 🌈</h2>
+    <p>Answer one question. Once you both have, you see each other's — then chat about it on WhatsApp. Repeat for all 62. No skipping ahead, but you can look back any time.</p>
+    <p>One room, two links — yours and theirs. Send them their link on WhatsApp to invite them; keep your own link in the chat too.</p>
+    <p>Everything saves automatically, on your phone and online. Close the app whenever — tap your link again and you're right back where you left off.</p>
+    <p>At the end, see both your results on one chart, plus your official Political Compass score.</p>
   </div>
-  <div class="card">
-    <h2>Setting up 🚪</h2>
-    <p><b>One of you creates the room</b> (front page → "Create our room"). That person gets <b>both links</b> on the next screen.</p>
-    <p><b>Send the other one their link</b> — there's a "send via WhatsApp" button that writes the message for you. That message in your chat <b>is</b> the invitation: the other person just taps it and starts answering. WhatsApp is the notification system — there's nothing else to watch.</p>
-    <p>Then drop <b>your own</b> link into the chat too, so both links stay pinned where you can always find them.</p>
-  </div>
-  <div class="card">
-    <h2>Your links 🔗</h2>
-    <p>It's <b>one room with two personal links</b> — same room code, your identity on the end: <b>…/L</b> is Lemon 🍋, <b>…/G</b> is Sol 🫧.</p>
-    <p><b>Your link is your identity.</b> Only ever tap your own — if you tap the wrong one, the app notices and asks.</p>
-  </div>
-  <div class="card">
-    <h2>Saving — progress is never lost 💾</h2>
-    <p>Every tap saves <b>twice</b>: on this phone, and to your shared room in the cloud.</p>
-    <p>Close this window whenever you like, even mid-question. <b>Tapping your personal link always brings everything back</b> — answers, comments, your place — even in a fresh browser with no history at all. That's the whole method: the link in your chat is the key.</p>
-    <p class="small">No accounts, nothing to install. Your room lives under an unguessable code — just don't post your links anywhere public.</p>
-  </div>
-  <div class="card">
-    <h2>Who sees what 👀</h2>
-    <p>They see your answer to a question <b>only once they've answered it too</b> — and the same goes for comments.</p>
-    <p>Comments are <b>live</b>: after you've both answered, they can literally watch you type ("Lemon is thinking…"). You can revisit any answered question to reread both answers and comments — or change yours; they'll see the update.</p>
-  </div>
-  <button class="btn primary" id="howback">← got it</button>`;
+  <button class="btn primary" id="howback">← back</button>`;
   $("#howback").onclick=back;
 }
 
@@ -468,7 +475,7 @@ function render(){
     const r=ROLES[roleKey], isMe=roleKey===S.role;
     const a = isMe? my : th;
     let pick;
-    if(isMe) pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">pick below…</span>`;
+    if(isMe) pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>${connected?"":`<div class="sendstate">⏳ saved — not sent yet</div>`}` : `<span class="chip wait">pick below…</span>`;
     else if(my===undefined) pick = a!==undefined? `<span class="chip wait">🔒 answered — yours first!</span>` : `<span class="chip wait">…thinking</span>`;
     else pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">waiting for ${r.label}…</span>`;
     return `<div class="side ${roleKey} ${isMe?"me":""}" id="side${roleKey}">${avatar(roleKey,"av-sm")}
@@ -524,9 +531,11 @@ function render(){
   const ta=$("textarea.mycom");
   if(ta){
     const mc=S.myCom[q.name]; if(mc) ta.value=mc[0];
+    autoGrow(ta);                                   // show the whole comment, never truncate/scroll
     ta.addEventListener("input",()=>{
-      S.myCom[q.name]=[ta.value,Date.now()]; store();
-      publishSoon([q.name,Date.now()]);
+      S.myCom[q.name]=[ta.value,Date.now()]; store();  // saved to this phone on every keystroke
+      publishSoon([q.name,Date.now()]);                // sent to the shared room shortly after
+      autoGrow(ta);
     });
   }
   $("#prev").onclick=()=>{ if(S.idx>0){S.idx--; render();} };
@@ -647,6 +656,13 @@ function confetti(){ const cols=["#e8433f","#f2792f","#f4c93c","#57a94e","#3a7de
     c.style.borderRadius=Math.random()>.5?"50%":"3px";
     document.body.appendChild(c); setTimeout(()=>c.remove(),6000); } }
 
+function returnFromHow(){
+  if(!S.room) renderHome();
+  else if(!S.intro_done) renderWelcome();
+  else if(answeredAll(S.mine) && S.idx>=N) renderResults();
+  else render();
+}
+$("#aboutlink").onclick=(e)=>{ e.preventDefault(); renderHow(returnFromHow); };
 boot();
 </script>
 </body>
