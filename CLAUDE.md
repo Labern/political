@@ -48,6 +48,32 @@ soc   = roundHalfAwayFromZero(raw_soc / 19.5, 2)
   browsers may drop localStorage; the link + retained state restores everything).
 - Reveal rule: partner's answer for a question is shown only once you've answered it.
 
+## ⛔ NEVER lose progress (hard rule for every future version)
+
+Standing user principle (applies to ALL his apps, stated 2026-07-10): **an ongoing
+session must survive any app update.** Someone mid-way through the 62 questions when
+a new version deploys must lose nothing — including when the two partners are
+temporarily on different versions (Pages caches HTML up to ~10 min).
+
+Concretely, in this codebase:
+- **Additive-only schemas.** Never rename, remove, or re-type existing fields in the
+  localStorage doc (`polduo:<room>`) or the MQTT payload. New features add new
+  optional fields with defaults. Do NOT bump the payload `v` field for additive
+  changes — old clients drop unknown `v`s entirely (that's a sync outage, and it's
+  only acceptable for a truly incompatible break, never a feature).
+- **Old state must always hydrate.** `boot()` merges saved state over defaults
+  (`Object.assign({...defaults}, saved)`) — keep that pattern for every new field.
+- **Never clear storage programmatically.** The only permitted wipe is the user's
+  explicit role-switch choice on the guard screen.
+- **Gate by the current question list, not raw counts.** `answeredCount`/`answeredAll`
+  count against `Q` by name, so stale keys or a changed question list can't brick the
+  results gate; `officialForm` refuses with a toast instead of throwing.
+- **Clamp indices from URLs/state** (`S.idx>=N` → first unanswered) — a results link
+  opened on a device whose cloud state hasn't arrived yet must render, not crash.
+- **Before shipping any storage/payload change:** (1) create a session on the LIVE
+  build, then load it on the new build — everything must survive; (2) pair one old
+  client with one new client in the same room — sync must still work both ways.
+
 ## Working on this project
 
 - **Use sub-agents liberally**: fan out independent investigations (e.g. re-probing the

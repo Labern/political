@@ -75,7 +75,18 @@ https://labern.github.io/political/ · repo `Labern/political`.
   weights + validation, probe_lib.py = shared). Rerun if the site ever changes;
   regenerate `data.js`. **Never hand-edit `data.js`.**
 
-### 1.4 Testing patterns that caught real bugs
+### 1.4 The never-lose-progress discipline (standing user principle, all apps)
+- Additive-only storage + wire schemas; hydrate old state over defaults; never clear
+  storage in code; count progress against the CURRENT schema by name, not key count;
+  clamp indices arriving from URLs/persisted state.
+- Upgrade test before every schema-touching deploy: old-build fixture session loaded
+  on the new build, plus one-old-one-new client pairing in the same room.
+- Real bug this caught here: a finished-session `/done` link opened on a
+  storage-evicted device crashed the renderer before cloud state arrived
+  (`Q[62]` indexing) — clamp fixed; results gate now name-based so even a changed
+  question list can't brick the endgame.
+
+### 1.5 Testing patterns that caught real bugs
 - Two live browser tabs as the two clients, driving real UI + JS injection; a
   same-profile pair shares localStorage → expect the role guard (that's the guard
   working, not a bug).

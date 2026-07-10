@@ -204,6 +204,10 @@ const store = ()=> localStorage.setItem("polduo:"+S.room, JSON.stringify(S));
 const load  = room=>{ try{ return JSON.parse(localStorage.getItem("polduo:"+room)); }catch(e){ return null; } };
 const esc = t=>{const d=document.createElement("div");d.textContent=t==null?"":String(t);return d.innerHTML;};
 const countAns = m=>Object.keys(m).length;
+/* NEVERLOSE: progress is counted against the CURRENT question list, never raw key
+   count — old/stale keys from a previous version can never brick the results gate */
+const answeredCount = m=>Q.reduce((n,qq)=>n+(m[qq.name]!==undefined?1:0),0);
+const answeredAll = m=>answeredCount(m)===N;
 const avatar=(rk,size)=>{const r=ROLES[rk];return `<img class="avatar-img ${size} ${r.cls}" src="${r.img}" alt="${r.label}">`;};
 const partner=()=>ROLES[other(S.role)];
 
@@ -269,12 +273,13 @@ let pubT=null;
 function publish(typing){
   if(!mq||!connected) return;
   mq.publish(TOPIC(S.room,S.role), JSON.stringify({v:1,self:myTag,role:S.role,ans:S.mine,com:S.myCom,
-    typing:typing||[null,0],done:countAns(S.mine)===N,updated:Date.now()}), {retain:true,qos:1});
+    typing:typing||[null,0],done:answeredAll(S.mine),updated:Date.now()}), {retain:true,qos:1});
 }
 function publishSoon(typing){ clearTimeout(pubT); pubT=setTimeout(()=>publish(typing),280); }
 function curQ(){ return Q[S.idx]?Q[S.idx].name:null; }
 function setPill(t,ok){ const p=$("#connpill"); p.textContent=t; p.className=ok?"on":""; }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.room){ if(mq&&!connected) mq.reconnect?.(); publish(); } });
+window.addEventListener("pageshow",()=>{ if(S.room){ if(mq&&!connected) mq.reconnect?.(); publish(); } });  // bfcache return (e.g. back from official site)
 
 /* refresh: re-render flow screens only; preserve comment typing */
 function refresh(needed){
@@ -395,8 +400,12 @@ function renderWelcome(){
 
 function render(){
   if(!S.room){ renderHome(); return; }
-  if(countAns(S.mine)===N && S.idx>=N){ renderResults(); return; }
+  if(answeredAll(S.mine) && S.idx>=N){ renderResults(); return; }
   VIEW="flow";
+  if(S.idx>=N || S.idx<0){            // e.g. /done link on a device whose cloud state hasn't arrived yet
+    const i=Q.findIndex(qq=>S.mine[qq.name]===undefined);
+    S.idx = i>=0 ? i : 0;
+  }
   const q = Q[S.idx];
   const my = S.mine[q.name], th = S.theirs[q.name];
   const revealed = my!==undefined && th!==undefined;
@@ -434,8 +443,8 @@ function render(){
   }
 
   screen.innerHTML = `
-  <div class="qmeta"><span>question ${S.idx+1} / ${N}</span><span>you: ${countAns(S.mine)} · ${p.label}: ${countAns(S.theirs)}</span></div>
-  <div class="progress-wrap"><div style="width:${(countAns(S.mine))/N*100}%"></div></div>
+  <div class="qmeta"><span>question ${S.idx+1} / ${N}</span><span>you: ${answeredCount(S.mine)} · ${p.label}: ${answeredCount(S.theirs)}</span></div>
+  <div class="progress-wrap"><div style="width:${(answeredCount(S.mine))/N*100}%"></div></div>
   ${firstOfPage?`<div style="text-align:center"><span class="section-chip">${esc(PC_DATA.INTROS[q.page]||("Part "+q.page))}</span></div>`:""}
   <div class="proposition"><span class="qq">“</span>${esc(q.text)}<span class="qq">”</span></div>
   <div class="duo">${sideHtml("L")}${sideHtml("G")}</div>
@@ -445,9 +454,10 @@ function render(){
   </div>
   ${comHtml}
   ${revealed?`<a class="btn whatsapp" href="whatsapp://">💬 Return to WhatsApp to discuss</a>`:""}
+  ${answeredAll(S.mine)&&S.idx<N-1?`<button class="btn primary" id="jumpres">see the results ✨</button>`:""}
   <div class="navrow">
     <button class="btn" id="prev" ${S.idx===0?"disabled":""}>← Back</button>
-    <button class="btn" id="next">${S.idx===N-1?(countAns(S.mine)===N?"Results ✨":"Next →"):"Next →"}</button>
+    <button class="btn" id="next">${S.idx===N-1?(answeredAll(S.mine)?"Results ✨":"Next →"):"Next →"}</button>
   </div>
   <details style="margin-top:16px"><summary class="small" style="cursor:pointer">all questions</summary><div id="dots"></div></details>`;
 
@@ -468,8 +478,9 @@ function render(){
     });
   }
   $("#prev").onclick=()=>{ if(S.idx>0){S.idx--; render();} };
+  const jr=$("#jumpres"); if(jr) jr.onclick=()=>{ S.idx=N; renderResults(); };
   $("#next").onclick=()=>{
-    if(S.idx===N-1){ if(countAns(S.mine)===N){ S.idx=N; renderResults(); } else { gotoUnanswered(); } }
+    if(S.idx===N-1){ if(answeredAll(S.mine)){ S.idx=N; renderResults(); } else { gotoUnanswered(); } }
     else { S.idx++; render(); }
   };
   const dots=$("#dots");
@@ -493,11 +504,12 @@ function tickThinking(){                      // light update of the thinking li
 setInterval(tickThinking,1500);
 function gotoUnanswered(){
   const i = Q.findIndex(q=>S.mine[q.name]===undefined);
-  if(i>=0){ S.idx=i; toast(`${N-countAns(S.mine)} left — jumped to the next one`); render(); }
+  if(i>=0){ S.idx=i; toast(`${N-answeredCount(S.mine)} left — jumped to the next one`); render(); }
 }
 
 /* ═══════════ results ═══════════ */
 function officialForm(ansMap){
+  if(!ansMap || Q.some(q=>ansMap[q.name]===undefined)){ toast("finish all 62 first — some answers are missing!"); return; }
   const f=document.createElement("form");
   f.method="POST"; f.action="https://www.politicalcompass.org/test/en";   // same tab: webview-safe
   const add=(n,v)=>{const i=document.createElement("input");i.type="hidden";i.name=n;i.value=v;f.appendChild(i);};
@@ -510,7 +522,7 @@ function renderResults(){
   history.replaceState(null,"",`#r/${S.room}/${S.role}/done`);   // reload/return lands back on results
   store();
   const p=partner();
-  const meDone=countAns(S.mine)===N, sheDone=countAns(S.theirs)===N;
+  const meDone=answeredAll(S.mine), sheDone=answeredAll(S.theirs);
   const me=meDone?finalScore(S.mine):null, her=sheDone?finalScore(S.theirs):null;
   if(meDone&&sheDone&&!S.celebrated){ S.celebrated=true; store(); confetti(); }
   screen.innerHTML = `
