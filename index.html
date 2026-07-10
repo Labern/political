@@ -44,7 +44,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:8px;pad
 #connpill.hide{display:none}
 
 .card{background:var(--card);border:3px solid var(--line);border-radius:var(--radius);box-shadow:var(--hard);
-  padding:20px;margin:14px 0;transform:rotate(.4deg)}
+  padding:20px;margin:18px 0;transform:rotate(.4deg)}
 .card:nth-of-type(2n){transform:rotate(-.45deg)}
 h1{font-size:clamp(1.7rem,7.2vw,2.4rem);line-height:1.15;margin:.2em 0;color:#fff;
   -webkit-text-stroke:1.6px var(--ink);text-shadow:3px 3px 0 var(--ink);letter-spacing:.02em;
@@ -77,15 +77,18 @@ img.lemon{object-position:50% 46%}
 @keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-6px) rotate(2deg)}}
 
 /* question screen */
-.qmeta{display:flex;justify-content:space-between;align-items:baseline;font-size:.78rem;color:var(--faint);margin:8px 2px 6px}
+.qmeta{display:flex;justify-content:space-between;align-items:baseline;font-size:.78rem;color:var(--ink);
+  margin:14px 0 10px;background:rgba(255,255,255,.88);border-radius:99px;padding:6px 14px}
 .progress-wrap{height:12px;border-radius:8px;background:#fff;border:2.5px solid var(--ink);overflow:hidden;box-shadow:var(--hard-sm)}
 .progress-wrap>div{height:100%;background:var(--rainbow);background-size:250% 100%;animation:slide 7s linear infinite;transition:width .4s}
 .section-chip{display:inline-block;font-size:.8rem;background:#fff;border:2.5px dashed var(--ink);
-  padding:5px 14px;border-radius:99px;margin:10px 0 0;transform:rotate(-.8deg);box-shadow:var(--hard-sm)}
-.proposition{font-size:clamp(1.15rem,5vw,1.45rem);line-height:1.4;margin:14px 4px 8px;font-weight:bold}
+  padding:5px 14px;border-radius:99px;margin:14px 0 2px;transform:rotate(-.8deg);box-shadow:var(--hard-sm)}
+.proposition{font-size:clamp(1.15rem,5vw,1.45rem);line-height:1.4;margin:18px 0 16px;font-weight:bold;
+  background:var(--card);border:3px solid var(--ink);border-radius:18px;padding:16px 18px;
+  box-shadow:var(--hard-sm);transform:rotate(-.3deg)}
 .proposition .qq{color:var(--rb-purple)}
 
-.duo{display:flex;gap:10px;margin:14px 0 6px}
+.duo{display:flex;gap:10px;margin:18px 0 12px}
 .side{flex:1;background:var(--card);border:3px solid var(--line);border-radius:var(--radius);padding:12px 6px;
   text-align:center;position:relative;box-shadow:var(--hard-sm)}
 .side.L{transform:rotate(-1deg)}.side.G{transform:rotate(1deg)}
@@ -95,12 +98,13 @@ img.lemon{object-position:50% 46%}
 .chip{display:inline-block;font-size:.8rem;font-weight:bold;padding:6px 10px;border-radius:99px;border:2.5px solid var(--ink)}
 .chip.a0{background:#ffd7d5}.chip.a1{background:#ffe4c9}.chip.a2{background:#d5eccf}.chip.a3{background:#b8e4b5}
 .chip.wait{background:#f1ece0;border-style:dashed;font-weight:normal;font-style:italic;color:var(--faint)}
-.verdict{text-align:center;font-size:.95rem;min-height:24px;margin:4px 0;font-weight:bold}
+.verdict{text-align:center;font-size:.95rem;font-weight:bold;width:fit-content;margin:12px auto;
+  background:rgba(255,255,255,.94);border:2.5px solid var(--ink);border-radius:99px;padding:7px 16px;box-shadow:var(--hard-sm)}
 .verdict.agree{color:var(--agree)}
 .verdict.differ{color:var(--differ)}
 
-.answers{margin:10px 0 4px}
-.abtn{display:flex;align-items:center;gap:10px;width:100%;margin:8px 0;padding:13px 14px;border-radius:14px;
+.answers{margin:16px 0 10px}
+.abtn{display:flex;align-items:center;gap:10px;width:100%;margin:10px 0;padding:13px 14px;border-radius:14px;
   font-size:.95rem;font-weight:bold;font-family:var(--font);cursor:pointer;color:var(--ink);
   background:#fff;border:3px solid var(--ink);box-shadow:var(--hard-sm);transition:transform .07s, box-shadow .07s}
 .abtn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(28,28,28,.85)}
@@ -113,11 +117,13 @@ img.lemon{object-position:50% 46%}
 .abtn.sel[data-v="0"]{background:#ffd7d5}.abtn.sel[data-v="1"]{background:#ffe4c9}
 .abtn.sel[data-v="2"]{background:#d5eccf}.abtn.sel[data-v="3"]{background:#b8e4b5}
 
-.navrow{display:flex;gap:10px;margin-top:10px}
+.navrow{display:flex;gap:10px;margin-top:16px}
 .navrow .btn{flex:1;margin:0}
+summary.small{display:inline-block;background:rgba(255,255,255,.88);border-radius:99px;padding:5px 14px;color:var(--ink)}
 
 /* comments — live typing */
-.combox{margin-top:12px}
+.combox{margin-top:18px;background:rgba(255,255,255,.66);border-radius:18px;padding:12px}
+.comlabel{font-size:.82rem;font-weight:bold;color:var(--ink);margin:10px 4px 6px}
 .thinking{font-size:.85rem;font-weight:bold;color:var(--rb-purple);min-height:20px;margin:0 4px 4px}
 .thinking .dots::after{content:"";animation:think 1.4s steps(4,end) infinite}
 @keyframes think{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
@@ -422,6 +428,7 @@ function render(){
     comHtml = `<div class="combox">
       <div class="thinking" id="thinkline">${typingNow?`${p.label} is thinking<span class="dots"></span>`:(tc&&tc[0]?`${p.label} says:`:"")}</div>
       ${tc&&tc[0]?`<div class="combubble" id="theirbubble">${esc(tc[0])}</div>`:`<div id="theirbubble"></div>`}
+      <div class="comlabel">Write your thoughts, the other person can see this…</div>
       <textarea class="mycom" maxlength="500" placeholder="say something about this one… 💬"></textarea>
     </div>`;
   }
@@ -442,7 +449,7 @@ function render(){
     <button class="btn" id="prev" ${S.idx===0?"disabled":""}>← Back</button>
     <button class="btn" id="next">${S.idx===N-1?(countAns(S.mine)===N?"Results ✨":"Next →"):"Next →"}</button>
   </div>
-  <details style="margin-top:10px"><summary class="small" style="cursor:pointer">all questions</summary><div id="dots"></div></details>`;
+  <details style="margin-top:16px"><summary class="small" style="cursor:pointer">all questions</summary><div id="dots"></div></details>`;
 
   document.querySelectorAll(".abtn").forEach(b=>{
     b.onclick=()=>{
