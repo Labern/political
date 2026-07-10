@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fff7fb">
+<title>Political Compass — Two of Us</title>
+<meta property="og:title" content="Political Compass — Two of Us">
+<meta property="og:description" content="Answer together, reveal each other's answers, discuss — then get your official results.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍋</text></svg>">
+<style>
+/* ── design tokens (fortune-cookie skin lands here) ─────────────── */
+:root{
+  --bg:#fff7fb; --bg2:#f3f0ff; --card:#ffffff; --ink:#3d3350; --faint:#8d84a3;
+  --line:#eee4f2; --shadow:0 10px 30px rgba(120,80,160,.10);
+  --lemon:#f7d64a; --lemon-deep:#e0b62e; --girl:#f79ac0; --girl-deep:#e0729f;
+  --r1:#ff9aa2; --r2:#ffb347; --r3:#f7d64a; --r4:#9ee09e; --r5:#9ec1f7; --r6:#c79af7;
+  --rainbow:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5),var(--r6));
+  --agree:#57b26a; --differ:#b28ad6;
+  --font-display:"Baskerville","Palatino","Georgia",serif;
+  --font-ui:-apple-system,"SF Pro Rounded","Segoe UI",system-ui,sans-serif;
+  --radius:18px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:linear-gradient(160deg,var(--bg),var(--bg2) 120%);color:var(--ink);
+  font-family:var(--font-ui);min-height:100%;}
+body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+#app{max-width:520px;margin:0 auto;padding:14px 16px 40px}
+
+/* rainbow shimmer text + bar */
+.rainbow-text{background:var(--rainbow);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;
+  color:transparent;animation:shimmer 6s linear infinite}
+@keyframes shimmer{0%{background-position:0% 0}100%{background-position:300% 0}}
+.rainbow-bar{height:5px;border-radius:3px;background:var(--rainbow);background-size:300% 100%;animation:shimmer 6s linear infinite}
+
+/* header */
+header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 12px}
+.wordmark{font-family:var(--font-display);font-weight:700;font-size:1.15rem;letter-spacing:.02em}
+#connpill{font-size:.72rem;color:var(--faint);border:1px solid var(--line);border-radius:99px;padding:3px 10px;background:var(--card)}
+#connpill.on{color:var(--agree);border-color:#cde8d3}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin:12px 0}
+h1{font-family:var(--font-display);font-size:clamp(1.9rem,7vw,2.6rem);line-height:1.12;margin:.2em 0}
+h2{font-family:var(--font-display);font-size:1.25rem;margin:.2em 0 .5em}
+p{line-height:1.55}
+.small{font-size:.85rem;color:var(--faint);line-height:1.5}
+.btn{display:block;width:100%;border:none;border-radius:14px;padding:15px 18px;font-size:1.02rem;font-weight:650;
+  font-family:var(--font-ui);cursor:pointer;text-align:center;text-decoration:none;color:var(--ink);
+  background:var(--card);border:1.5px solid var(--line);transition:transform .08s, box-shadow .2s;margin:8px 0}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--rainbow);background-size:300% 100%;animation:shimmer 8s linear infinite;color:#fff;
+  border:none;text-shadow:0 1px 2px rgba(0,0,0,.18);box-shadow:0 8px 22px rgba(200,120,200,.35)}
+.btn.whatsapp{background:#e7f8ec;border-color:#bfe8cc;color:#128c4b}
+.btn.ghost{background:transparent;box-shadow:none}
+.btnrow{display:flex;gap:10px}.btnrow .btn{flex:1}
+
+/* question screen */
+.qmeta{display:flex;justify-content:space-between;align-items:baseline;font-size:.8rem;color:var(--faint);margin:10px 2px 6px}
+.progress-wrap{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:0 0 4px}
+.progress-wrap>div{height:100%;border-radius:3px;background:var(--rainbow);background-size:300% 100%;animation:shimmer 6s linear infinite;transition:width .4s}
+.section-chip{display:inline-block;font-size:.78rem;background:var(--bg2);border:1px solid var(--line);
+  color:var(--faint);padding:4px 12px;border-radius:99px;margin:8px 0 0;font-style:italic}
+.proposition{font-family:var(--font-display);font-size:clamp(1.25rem,5.4vw,1.6rem);line-height:1.35;margin:14px 4px 6px;
+  quotes:"“" "”";}
+.proposition:before{content:open-quote;color:var(--girl);}
+.proposition:after{content:close-quote;color:var(--girl)}
+
+/* the two sides */
+.duo{display:flex;gap:10px;margin:14px 0}
+.side{flex:1;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:12px 8px;text-align:center;position:relative;overflow:hidden}
+.side.lemon.me,.side.girl.me{border-color:var(--lemon-deep)}
+.side.girl.me{border-color:var(--girl-deep)}
+.side .who{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-top:6px}
+.side svg.avatar{width:74px;height:74px;animation:bob 3.6s ease-in-out infinite}
+.side.girl svg.avatar{animation-delay:1.8s}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.pick{margin-top:8px;min-height:34px;display:flex;align-items:center;justify-content:center}
+.chip{display:inline-block;font-size:.82rem;font-weight:700;padding:6px 12px;border-radius:99px;border:1.5px solid}
+.chip.a0{background:#ffe9ec;border-color:#f5b8c0;color:#c2434f}
+.chip.a1{background:#fff1e2;border-color:#f5cf9b;color:#b06c1b}
+.chip.a2{background:#e8f6e9;border-color:#b5dfb9;color:#2e8540}
+.chip.a3{background:#e3f9e6;border-color:#8fd49a;color:#156d2b}
+.chip.wait{background:var(--bg2);border-color:var(--line);color:var(--faint);font-weight:500;font-style:italic}
+.verdict{text-align:center;font-size:.9rem;min-height:22px;margin:2px 0 4px;font-weight:650}
+.verdict.agree{color:var(--agree)}
+.verdict.differ{color:var(--differ)}
+
+/* answer buttons */
+.answers{margin:10px 0 4px}
+.abtn{display:flex;align-items:center;gap:10px;width:100%;margin:7px 0;padding:13px 14px;border-radius:14px;
+  font-size:.98rem;font-weight:600;font-family:var(--font-ui);cursor:pointer;color:var(--ink);
+  background:var(--card);border:1.5px solid var(--line);transition:transform .08s}
+.abtn:active{transform:scale(.985)}
+.abtn .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:2px solid}
+.abtn[data-v="0"] .dot{border-color:#c2434f;background:#ffd7dc}
+.abtn[data-v="1"] .dot{border-color:#b06c1b;background:#ffe9cc}
+.abtn[data-v="2"] .dot{border-color:#2e8540;background:#d1eecd}
+.abtn[data-v="3"] .dot{border-color:#156d2b;background:#a9e3b1}
+.abtn.sel{border-width:2.5px;transform:none;font-weight:800}
+.abtn.sel[data-v="0"]{border-color:#c2434f;background:#ffe9ec}
+.abtn.sel[data-v="1"]{border-color:#b06c1b;background:#fff1e2}
+.abtn.sel[data-v="2"]{border-color:#2e8540;background:#e8f6e9}
+.abtn.sel[data-v="3"]{border-color:#156d2b;background:#e3f9e6}
+
+.navrow{display:flex;gap:10px;margin-top:10px}
+.navrow .btn{flex:1;margin:0}
+.navrow .btn:disabled{opacity:.35}
+
+/* dots nav */
+#dots{display:grid;grid-template-columns:repeat(10,1fr);gap:7px;margin:12px 0}
+.qdot{aspect-ratio:1;border-radius:50%;background:var(--line);border:none;cursor:pointer;font-size:0}
+.qdot.mine{background:var(--lemon)}
+.qdot.both{background:var(--agree)}
+.qdot.cur{outline:2.5px solid var(--ink);outline-offset:1.5px}
+
+/* results / compass */
+#compass{width:100%;max-width:420px;display:block;margin:6px auto}
+.score-pair{display:flex;gap:10px}
+.score-pair .card{flex:1;text-align:center;margin:6px 0}
+.score-big{font-family:var(--font-display);font-size:1.25rem;font-weight:700}
+
+/* toast + sparkle + confetti */
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;
+  padding:10px 18px;border-radius:99px;font-size:.88rem;transition:transform .3s;z-index:50;max-width:88vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+.sparkle{position:absolute;pointer-events:none;font-size:1rem;animation:sparkfly 900ms ease-out forwards;z-index:5}
+@keyframes sparkfly{0%{opacity:1;transform:translate(0,0) scale(.6)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.25)}}
+.confetti{position:fixed;top:-12px;width:9px;height:14px;z-index:60;pointer-events:none;animation:cfall linear forwards}
+@keyframes cfall{to{transform:translateY(105vh) rotate(720deg)}}
+
+.linkbox{font-size:.8rem;background:var(--bg2);border:1px dashed var(--line);border-radius:12px;padding:10px;word-break:break-all;color:var(--faint);margin:8px 0}
+.hidden{display:none!important}
+footer{text-align:center;margin-top:26px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="wordmark rainbow-text">🍋 two of us 🎀</div>
+    <div id="connpill">connecting…</div>
+  </header>
+  <div class="rainbow-bar"></div>
+  <main id="screen"></main>
+  <footer class="small">propositions &amp; scoring © <a href="https://www.politicalcompass.org" style="color:inherit">politicalcompass.org</a> · official results are computed by the real site</footer>
+</div>
+<div id="toast"></div>
+
+<script src="data.js"></script>
+<script src="vendor/mqtt.min.js"></script>
+<script>
+"use strict";
+/* ═══════════ avatars ═══════════ */
+const AV_LEMON = `<svg class="avatar" viewBox="0 0 100 100">
+ <g>
+  <ellipse cx="50" cy="54" rx="34" ry="27" fill="#f7d64a" stroke="#e0b62e" stroke-width="2.5" transform="rotate(-18 50 54)"/>
+  <path d="M20 36 q-6 -7 -2 -12 q7 -1 9 7" fill="#f7d64a" stroke="#e0b62e" stroke-width="2.5"/>
+  <path d="M82 66 q7 6 4 12 q-8 2 -10 -6" fill="#f7d64a" stroke="#e0b62e" stroke-width="2.5"/>
+  <path d="M30 26 q6 -8 16 -6" fill="none" stroke="#7cb350" stroke-width="3.5" stroke-linecap="round"/>
+  <ellipse cx="42" cy="20" rx="9" ry="5" fill="#8fc45e" stroke="#6da344" stroke-width="2" transform="rotate(-24 42 20)"/>
+  <path d="M36 50 q4 -5 8 0" fill="none" stroke="#5c4a1e" stroke-width="3" stroke-linecap="round"/>
+  <path d="M58 50 q4 -5 8 0" fill="none" stroke="#5c4a1e" stroke-width="3" stroke-linecap="round"/>
+  <path d="M44 62 q7 7 15 0" fill="none" stroke="#5c4a1e" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="60" r="4.5" fill="#f8a8a0" opacity=".7"/>
+  <circle cx="70" cy="58" r="4.5" fill="#f8a8a0" opacity=".7"/>
+ </g></svg>`;
+const AV_GIRL = `<svg class="avatar" viewBox="0 0 100 100">
+ <g>
+  <circle cx="50" cy="55" r="30" fill="#fbe3d2" stroke="#e5b898" stroke-width="2"/>
+  <path d="M20 52 q-2 -34 30 -34 q32 0 30 34 q-1 8 -6 12 q2 -16 -6 -22 q-8 10 -30 8 q-8 4 -8 16 q-8 -4 -10 -14z" fill="#7b4a2d" stroke="#5f3820" stroke-width="2"/>
+  <circle cx="26" cy="30" r="7" fill="#f79ac0" stroke="#e0729f" stroke-width="2"/>
+  <circle cx="38" cy="24" r="7" fill="#f79ac0" stroke="#e0729f" stroke-width="2"/>
+  <circle cx="31" cy="26" r="3.5" fill="#fbc7dd"/>
+  <path d="M38 56 q4 -5 8 0" fill="none" stroke="#4a3226" stroke-width="3" stroke-linecap="round"/>
+  <path d="M58 56 q4 -5 8 0" fill="none" stroke="#4a3226" stroke-width="3" stroke-linecap="round"/>
+  <path d="M45 68 q6 6 13 0" fill="none" stroke="#4a3226" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="33" cy="64" r="4.5" fill="#f8a8a0" opacity=".75"/>
+  <circle cx="69" cy="64" r="4.5" fill="#f8a8a0" opacity=".75"/>
+ </g></svg>`;
+
+/* ═══════════ constants + state ═══════════ */
+const Q = PC_DATA.QUESTIONS, N = Q.length, LABELS = PC_DATA.LABELS;
+const ROLES = { L:{key:"L", label:"Lemon", cls:"lemon", av:AV_LEMON}, G:{key:"G", label:"Girl", cls:"girl", av:AV_GIRL} };
+const BROKERS = ["wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt"];
+const TOPIC = (room,role)=>`polduo1/${room}/${role}`;
+
+let S = {            // app state (mirrored to localStorage)
+  room:null, role:null, idx:0, intro_done:false,
+  mine:{},           // qname -> [value, ts]
+  theirs:{},         // qname -> [value, ts]  (cache of partner)
+  celebrated:false
+};
+let mq=null, connected=false, brokerIx=0;
+
+const $ = s=>document.querySelector(s);
+const screen = $("#screen");
+const other = r=> r==="L"?"G":"L";
+const store = ()=> localStorage.setItem("polduo:"+S.room, JSON.stringify(S));
+const load  = room=>{ try{ return JSON.parse(localStorage.getItem("polduo:"+room)); }catch(e){ return null; } };
+const esc = t=>{const d=document.createElement("div");d.textContent=t;return d.innerHTML;};
+const countAns = m=>Object.keys(m).length;
+
+/* ═══════════ scoring (exact replica, validated) ═══════════ */
+function rawScore(ansMap){
+  let e=PC_DATA.BASE[0], s=PC_DATA.BASE[1];
+  for(const q of Q){ const a=ansMap[q.name]; if(a!==undefined){ e+=q.w[a[0]][0]; s+=q.w[a[0]][1]; } }
+  return [e,s];
+}
+const rhalf = x=> Math.sign(x)*Math.round(Math.abs(x)*100)/100;
+function finalScore(ansMap){ const [e,s]=rawScore(ansMap); return [rhalf(e/PC_DATA.DIV[0]), rhalf(s/PC_DATA.DIV[1])]; }
+
+/* ═══════════ sync: MQTT retained + localStorage ═══════════ */
+function connect(){
+  if(!S.room) return;
+  const url = BROKERS[brokerIx % BROKERS.length];
+  setPill("connecting…",false);
+  try{ if(mq) mq.end(true); }catch(e){}
+  mq = mqtt.connect(url,{clientId:"pd_"+S.room+"_"+S.role+"_"+Math.random().toString(36).slice(2,8),
+    clean:true, connectTimeout:6000, reconnectPeriod:4000, keepalive:30});
+  let gotOwn=false;
+  mq.on("connect",()=>{
+    connected=true; setPill("● synced",true);
+    mq.subscribe(TOPIC(S.room,other(S.role)),{qos:1});
+    mq.subscribe(TOPIC(S.room,S.role),{qos:1});      // recover own cloud state
+    setTimeout(()=>{ publish(); },1200);              // after retained arrive, push merged state
+  });
+  mq.on("message",(t,msg)=>{
+    let d; try{ d=JSON.parse(msg.toString()); }catch(e){ return; }
+    if(!d||d.v!==1) return;
+    if(t===TOPIC(S.room,S.role)){                     // own retained → merge into mine
+      if(!gotOwn){ gotOwn=true; mergeInto(S.mine,d.ans||{}); store(); render(); }
+      return;
+    }
+    const before = countAns(S.theirs);
+    const changedCur = mergeInto(S.theirs, d.ans||{});
+    store();
+    if(countAns(S.theirs)!==before || changedCur){ render();
+      const cur=Q[S.idx].name;
+      if(S.theirs[cur]!==undefined && S.mine[cur]!==undefined && changedCur) toast("💌 she just answered!");
+    }
+  });
+  mq.on("error",()=>{ /* handled by close */ });
+  let fails=0;
+  mq.on("connect",()=>{ fails=0; });
+  mq.on("close",()=>{
+    if(connected){connected=false; setPill("offline — answers still saved",false);}
+    if(++fails>=4){ brokerIx++; fails=0; connect(); }  // rotate to next broker
+  });
+}
+function mergeInto(dst,src){                          // newest-wins per question; returns "current question changed"
+  let changedCur=false; const cur=Q[S.idx]?.name;
+  for(const k in src){ const v=src[k];
+    if(!Array.isArray(v)||v.length<2) continue;
+    if(!dst[k] || v[1]>dst[k][1]){ dst[k]=v; if(k===cur) changedCur=true; }
+  }
+  return changedCur;
+}
+function publish(){
+  if(!mq||!connected) return;
+  mq.publish(TOPIC(S.room,S.role), JSON.stringify({v:1,role:S.role,ans:S.mine,done:countAns(S.mine)===N,updated:Date.now()}),
+    {retain:true,qos:1});
+}
+function setPill(t,ok){ const p=$("#connpill"); p.textContent=t; p.className=ok?"on":""; }
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ if(mq&&!connected) mq.reconnect?.(); publish(); } });
+
+/* ═══════════ routing ═══════════ */
+function parseHash(){
+  const m = location.hash.match(/^#r\/([A-Za-z0-9]+)\/([LG])(?:\/q(\d+))?/);
+  return m? {room:m[1],role:m[2],q:m[3]?+m[3]:null} : null;
+}
+function setHash(){ history.replaceState(null,"",`#r/${S.room}/${S.role}/q${S.idx+1}`); }
+function link(role){ return location.origin+location.pathname+`#r/${S.room}/${role}`; }
+
+/* ═══════════ boot ═══════════ */
+function boot(){
+  const h = parseHash();
+  if(!h){ renderHome(); return; }
+  const saved = load(h.room);
+  if(saved && saved.role && saved.role!==h.role){ renderRoleGuard(saved,h); return; }
+  if(saved){ S=saved; S.role=h.role; } else { S.room=h.room; S.role=h.role; }
+  if(h.q && h.q>=1 && h.q<=N) S.idx=h.q-1;
+  store(); connect();
+  if(!S.intro_done) renderWelcome(); else render();
+}
+function renderRoleGuard(saved,h){
+  const a=ROLES[saved.role], b=ROLES[h.role];
+  screen.innerHTML=`<div class="card" style="text-align:center">
+    <h2>Hold on — whose link is this? 🤔</h2>
+    <p class="small">On this phone you've been answering as <b>${a.label}</b>, but this link belongs to <b>${b.label}</b>. Tapping the wrong person's link would mix up your answers.</p>
+    <button class="btn primary" id="keep">I'm ${a.label} ${a.key==="L"?"🍋":"🎀"} — take me back</button>
+    <button class="btn" id="switch">No really, I'm ${b.label} ${b.key==="L"?"🍋":"🎀"}</button>
+  </div>`;
+  $("#keep").onclick=()=>{ location.replace(location.pathname+`#r/${h.room}/${saved.role}`); location.reload(); };
+  $("#switch").onclick=()=>{ localStorage.removeItem("polduo:"+h.room); location.reload(); };
+}
+window.addEventListener("hashchange",()=>{ const h=parseHash(); if(h&&h.room!==S.room) location.reload(); });
+
+/* ═══════════ screens ═══════════ */
+function renderHome(){
+  screen.innerHTML = `
+  <div class="card" style="text-align:center">
+    <h1 class="rainbow-text">the political compass, together</h1>
+    <p>62 propositions. Two phones. Answer each one — your partner's answer is revealed only after you've picked yours. Then pop back to WhatsApp and argue about it. 💬</p>
+    <p class="small">At the end you'll both get your <b>official</b> Political Compass results — computed by the real politicalcompass.org — and see them side by side.</p>
+  </div>
+  <div class="card">
+    <h2>Who are you?</h2>
+    <div class="duo">
+      <button class="side lemon me" id="pickL" style="cursor:pointer">${AV_LEMON}<div class="who">Lemon 🍋</div></button>
+      <button class="side girl" id="pickG" style="cursor:pointer">${AV_GIRL}<div class="who">Girl 🎀</div></button>
+    </div>
+    <button class="btn primary" id="mkroom">Create our room →</button>
+  </div>
+  <div class="card small">
+    <b>How saving works:</b> no accounts, nothing to install. Your answers save automatically to this phone <i>and</i> to your shared room in the cloud. You'll each get a personal link — keep it in your WhatsApp chat and tap it any time to jump right back in, even if this window closes. 🌈
+  </div>`;
+  let picked="L";
+  const re=()=>{ $("#pickL").classList.toggle("me",picked==="L"); $("#pickG").classList.toggle("me",picked==="G"); };
+  $("#pickL").onclick=()=>{picked="L";re();};
+  $("#pickG").onclick=()=>{picked="G";re();};
+  $("#mkroom").onclick=()=>{
+    const room = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b=>"abcdefghjkmnpqrstuvwxyz23456789"[b%31]).join("");
+    S={room,role:picked,idx:0,intro_done:true,mine:{},theirs:{},celebrated:false};
+    store(); connect(); renderShare();
+  };
+}
+
+function renderShare(){
+  const mine = link(S.role), hers = link(other(S.role));
+  const invite = encodeURIComponent(`🍋🎀 Political Compass — the two of us. This one's YOUR link (keep it, tap it to answer): ${hers}`);
+  screen.innerHTML = `
+  <div class="card">
+    <h2>Room created ✨</h2>
+    <p class="small"><b>Two personal links.</b> Send your partner theirs, keep yours. Tapping your own link in WhatsApp always brings you back exactly where you left off — that's how progress is saved.</p>
+    <p style="margin-bottom:4px"><b>${ROLES[other(S.role)].label==="Girl"?"🎀 Her":"🍋 Their"} link</b> — send this one:</p>
+    <div class="linkbox">${hers}</div>
+    <a class="btn whatsapp" href="https://wa.me/?text=${invite}">Send her link via WhatsApp 💬</a>
+    <button class="btn" id="cp2">Copy her link</button>
+    <p style="margin-bottom:4px;margin-top:16px"><b>${S.role==="L"?"🍋":"🎀"} Your link</b> — keep it in the chat too:</p>
+    <div class="linkbox">${mine}</div>
+    <button class="btn" id="cp1">Copy my link</button>
+  </div>
+  <button class="btn primary" id="start">Start question 1 →</button>`;
+  const copy=(txt,msg)=>navigator.clipboard.writeText(txt).then(()=>toast(msg)).catch(()=>toast("couldn't auto-copy — long-press the link box instead"));
+  $("#cp1").onclick=()=>copy(mine,"your link copied 🍋");
+  $("#cp2").onclick=()=>copy(hers,"her link copied 🎀");
+  $("#start").onclick=()=>{ render(); };
+}
+
+function renderWelcome(){
+  const r=ROLES[S.role];
+  screen.innerHTML = `
+  <div class="card" style="text-align:center">
+    <h1 class="rainbow-text">hello, ${r.label.toLowerCase()}!</h1>
+    <div style="width:96px;margin:0 auto">${r.av}</div>
+    <p>62 propositions about how you see the world. For each one: pick your answer, and <b>only then</b> is your partner's revealed. Agree, clash, then head back to WhatsApp to fight it out. 💬</p>
+    <p class="small"><b>Saving:</b> automatic — to this phone and to your shared room. Keep your personal link in the chat; tapping it always resumes exactly where you were. No account, nothing to lose.</p>
+    <button class="btn primary" id="go">Let's go →</button>
+  </div>`;
+  $("#go").onclick=()=>{ S.intro_done=true; store(); render(); };
+}
+
+function render(){
+  if(!S.room){ renderHome(); return; }
+  if(countAns(S.mine)===N && S.idx>=N){ renderResults(); return; }
+  const q = Q[S.idx], meFirst = S.role==="L";
+  const my = S.mine[q.name], th = S.theirs[q.name];
+  const revealed = my!==undefined && th!==undefined;
+  const firstOfPage = S.idx===0 || Q[S.idx-1].page!==q.page;
+  setHash(); store();
+
+  const sideHtml = (roleKey)=>{
+    const r=ROLES[roleKey], isMe=roleKey===S.role;
+    const a = isMe? my : th;
+    let pick;
+    if(isMe) pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">pick below…</span>`;
+    else if(my===undefined) pick = a!==undefined? `<span class="chip wait">🔒 answered — yours first!</span>` : `<span class="chip wait">…thinking</span>`;
+    else pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">waiting for them…</span>`;
+    return `<div class="side ${r.cls} ${isMe?"me":""}" id="side${roleKey}">${r.av}
+      <div class="who">${r.label}${isMe?" (you)":""}</div><div class="pick">${pick}</div></div>`;
+  };
+
+  let verdict="";
+  if(revealed) verdict = my[0]===th[0]
+      ? `<div class="verdict agree">you both said “${LABELS[my[0]]}” ✨</div>`
+      : `<div class="verdict differ">interesting… time to talk 👀</div>`;
+
+  screen.innerHTML = `
+  <div class="qmeta"><span>question ${S.idx+1} / ${N}</span><span>${countAns(S.mine)} answered · her: ${countAns(S.theirs)}</span></div>
+  <div class="progress-wrap"><div style="width:${(countAns(S.mine))/N*100}%"></div></div>
+  ${firstOfPage?`<div style="text-align:center"><span class="section-chip">${esc(PC_DATA.INTROS[q.page]||("Part "+q.page))}</span></div>`:""}
+  <div class="proposition">${esc(q.text)}</div>
+  <div class="duo">${sideHtml("L")}${sideHtml("G")}</div>
+  ${verdict}
+  <div class="answers">${[0,1,2,3].map(v=>`
+    <button class="abtn ${my&&my[0]===v?"sel":""}" data-v="${v}"><span class="dot"></span>${LABELS[v]}</button>`).join("")}
+  </div>
+  ${revealed?`<a class="btn whatsapp" href="whatsapp://">💬 Return to WhatsApp to discuss</a>`:""}
+  <div class="navrow">
+    <button class="btn" id="prev" ${S.idx===0?"disabled":""}>← Back</button>
+    <button class="btn" id="next">${S.idx===N-1?(countAns(S.mine)===N?"Results ✨":"Next →"):"Next →"}</button>
+  </div>
+  <details style="margin-top:10px"><summary class="small" style="cursor:pointer">all questions</summary><div id="dots"></div></details>`;
+
+  document.querySelectorAll(".abtn").forEach(b=>{
+    b.onclick=()=>{
+      const v=+b.dataset.v, first=S.mine[q.name]===undefined;
+      S.mine[q.name]=[v,Date.now()]; store(); publish();
+      if(first && S.theirs[q.name]!==undefined) sparkle($("#side"+other(S.role)));
+      render();
+    };
+  });
+  $("#prev").onclick=()=>{ if(S.idx>0){S.idx--; render();} };
+  $("#next").onclick=()=>{
+    if(S.idx===N-1){ if(countAns(S.mine)===N){ S.idx=N; renderResults(); } else { gotoUnanswered(); } }
+    else { S.idx++; render(); }
+  };
+  const dots=$("#dots");
+  Q.forEach((qq,i)=>{
+    const d=document.createElement("button"); d.className="qdot";
+    if(S.mine[qq.name]!==undefined) d.classList.add(S.theirs[qq.name]!==undefined?"both":"mine");
+    if(i===S.idx) d.classList.add("cur");
+    d.title=`Q${i+1}`; d.onclick=()=>{S.idx=i;render();};
+    dots.appendChild(d);
+  });
+}
+function gotoUnanswered(){
+  const i = Q.findIndex(q=>S.mine[q.name]===undefined);
+  if(i>=0){ S.idx=i; toast(`${N-countAns(S.mine)} left — jumped to the next one`); render(); }
+}
+
+/* ═══════════ results ═══════════ */
+function officialForm(ansMap){
+  const f=document.createElement("form");
+  f.method="POST"; f.action="https://www.politicalcompass.org/test/en";  // same tab: webview-safe; our state persists
+  const add=(n,v)=>{const i=document.createElement("input");i.type="hidden";i.name=n;i.value=v;f.appendChild(i);};
+  add("page","7"); add("carried_ec","0"); add("carried_soc","0"); add("populated","");
+  for(const q of Q) add(q.name, String(ansMap[q.name][0]));
+  document.body.appendChild(f); f.submit(); f.remove();
+}
+function renderResults(){
+  setHash(); store();
+  const meDone=countAns(S.mine)===N, sheDone=countAns(S.theirs)===N;
+  const me=meDone?finalScore(S.mine):null, her=sheDone?finalScore(S.theirs):null;
+  const rMe=ROLES[S.role], rHer=ROLES[other(S.role)];
+  if(meDone&&sheDone&&!S.celebrated){ S.celebrated=true; store(); confetti(); }
+  screen.innerHTML = `
+  <div class="card" style="text-align:center">
+    <h1 class="rainbow-text">the reveal ✨</h1>
+    ${!sheDone?`<p class="small">${rHer.label} is at ${countAns(S.theirs)}/${N} — her dot appears when she's done. This page updates live.</p>`:""}
+  </div>
+  <div class="score-pair">
+    <div class="card"><div style="width:64px;margin:0 auto">${rMe.av}</div><div class="who small">${rMe.label} (you)</div>
+      <div class="score-big">${me?`${me[0]} · ${me[1]}`:"—"}</div><div class="small">economic · social</div></div>
+    <div class="card"><div style="width:64px;margin:0 auto">${rHer.av}</div><div class="who small">${rHer.label}</div>
+      <div class="score-big">${her?`${her[0]} · ${her[1]}`:"…"}</div><div class="small">economic · social</div></div>
+  </div>
+  <div class="card">${compassSVG(me,her)}
+    <p class="small" style="text-align:center">${me&&her?`you two are ${Math.hypot(me[0]-her[0],me[1]-her[1]).toFixed(1)} units apart 💞`:""}</p>
+  </div>
+  <div class="card">
+    <h2>Official results</h2>
+    <p class="small">These open the real politicalcompass.org with your answers — the official chart, computed by their site.</p>
+    <button class="btn primary" id="offme" ${meDone?"":"disabled"}>Open MY official result 🍋</button>
+    <button class="btn" id="offher" ${sheDone?"":"disabled"}>Open ${rHer.label==="Girl"?"HER":"THEIR"} official result 🎀</button>
+    <a class="btn whatsapp" href="whatsapp://">💬 Back to WhatsApp</a>
+  </div>
+  <button class="btn ghost small" id="back">← back to the questions</button>`;
+  $("#offme").onclick=()=>officialForm(S.mine);
+  $("#offher").onclick=()=>officialForm(S.theirs);
+  $("#back").onclick=()=>{ S.idx=N-1; render(); };
+}
+function compassSVG(me,her){
+  const P=(pt)=>[210+pt[0]*19, 210-pt[1]*19];
+  const dot=(pt,fill,stroke,label)=>{ if(!pt)return""; const [x,y]=P(pt);
+    return `<circle cx="${x}" cy="${y}" r="9" fill="${fill}" stroke="${stroke}" stroke-width="3"/>
+      <text x="${x}" y="${y-14}" text-anchor="middle" font-size="15">${label}</text>`;};
+  let line="";
+  if(me&&her){ const a=P(me),b=P(her);
+    line=`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#c79af7" stroke-width="2.5" stroke-dasharray="5 5"/>`; }
+  return `<svg id="compass" viewBox="0 0 420 420">
+   <rect x="20" y="20" width="190" height="190" fill="#fbd9d3"/><rect x="210" y="20" width="190" height="190" fill="#cfe3f7"/>
+   <rect x="20" y="210" width="190" height="190" fill="#d9efd5"/><rect x="210" y="210" width="190" height="190" fill="#ecdcf5"/>
+   ${[...Array(21)].map((_,i)=>`<line x1="${20+i*19}" y1="20" x2="${20+i*19}" y2="400" stroke="#fff" stroke-width="${i===10?0:1}" opacity=".55"/>
+     <line x1="20" y1="${20+i*19}" x2="400" y2="${20+i*19}" stroke="#fff" stroke-width="${i===10?0:1}" opacity=".55"/>`).join("")}
+   <line x1="210" y1="20" x2="210" y2="400" stroke="#8d84a3" stroke-width="1.5"/>
+   <line x1="20" y1="210" x2="400" y2="210" stroke="#8d84a3" stroke-width="1.5"/>
+   <text x="210" y="14" text-anchor="middle" font-size="12" fill="#8d84a3">Authoritarian</text>
+   <text x="210" y="414" text-anchor="middle" font-size="12" fill="#8d84a3">Libertarian</text>
+   <text x="16" y="213" text-anchor="end" font-size="12" fill="#8d84a3" transform="rotate(-90 16 213)">Left</text>
+   <text x="410" y="213" font-size="12" fill="#8d84a3" transform="rotate(90 410 213)">Right</text>
+   ${line}${dot(me,"#f7d64a","#e0b62e","🍋")}${dot(her,"#f79ac0","#e0729f","🎀")}
+  </svg>`;
+}
+
+/* ═══════════ delights ═══════════ */
+let toastT;
+function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),2600); }
+function sparkle(host){ if(!host) return;
+  for(let i=0;i<7;i++){ const s=document.createElement("span"); s.className="sparkle"; s.textContent=["✨","💫","⭐️"][i%3];
+    s.style.left=(30+Math.random()*40)+"%"; s.style.top=(30+Math.random()*30)+"%";
+    s.style.setProperty("--dx",(Math.random()*80-40)+"px"); s.style.setProperty("--dy",(-30-Math.random()*50)+"px");
+    host.appendChild(s); setTimeout(()=>s.remove(),950); } }
+function confetti(){ const cols=["#ff9aa2","#ffb347","#f7d64a","#9ee09e","#9ec1f7","#c79af7"];
+  for(let i=0;i<90;i++){ const c=document.createElement("div"); c.className="confetti";
+    c.style.left=Math.random()*100+"vw"; c.style.background=cols[i%6];
+    c.style.animationDuration=(2.2+Math.random()*2.5)+"s"; c.style.animationDelay=(Math.random()*0.9)+"s";
+    c.style.borderRadius=Math.random()>.5?"50%":"2px";
+    document.body.appendChild(c); setTimeout(()=>c.remove(),6000); } }
+
+boot();
+</script>
+</body>
+</html>
