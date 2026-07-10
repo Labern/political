@@ -36,13 +36,17 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;opacity:.07;pointer-eve
 #app{max-width:520px;margin:0 auto;padding:12px 14px 44px}
 
 /* header */
-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 2px 10px}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px 6px;padding:8px 2px 10px;flex-wrap:wrap}
 .wordmark{font-weight:bold;font-size:1.05rem;letter-spacing:.03em;color:#fff;
   -webkit-text-stroke:1.2px var(--ink);text-shadow:2.5px 2.5px 0 var(--ink);transform:rotate(-1.5deg)}
 #connpill{font-size:.7rem;color:var(--ink);border:2.5px solid var(--ink);border-radius:99px;padding:3px 10px;
   background:#fff;box-shadow:var(--hard-sm);white-space:nowrap}
 #connpill.on{background:#d7f2cf}
 #connpill.hide{display:none}
+#partnerpill{font-size:.7rem;color:var(--faint);border:2.5px solid var(--ink);border-radius:99px;padding:3px 10px;
+  background:#fff;box-shadow:var(--hard-sm);white-space:nowrap;font-family:var(--font-read);font-weight:600}
+#partnerpill.on{background:#d7f2cf;color:var(--ink)}
+#partnerpill.hide{display:none}
 #linksbtn{font-size:.7rem;font-weight:bold;color:var(--ink);border:2.5px solid var(--ink);border-radius:99px;
   padding:3px 10px;background:#fffbe0;box-shadow:var(--hard-sm);white-space:nowrap;cursor:pointer;font-family:var(--font-read)}
 #linksbtn.hide{display:none}
@@ -179,8 +183,9 @@ footer a{color:inherit}
 <div id="app">
   <header>
     <div class="wordmark">🍋 POLITICAL DISCUSSION 🫧</div>
-    <div style="display:flex;align-items:center;gap:6px">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <button id="linksbtn" class="hide" title="see and share both links">🔗 links</button>
+      <div id="partnerpill" class="hide">…</div>
       <div id="connpill" class="hide">connecting…</div>
     </div>
   </header>
@@ -201,12 +206,15 @@ const ROLES = { L:{key:"L", label:"Lemon", emoji:"🍋", img:"assets/lemon.jpg",
    We race all of them on every connect and keep whichever answers first — see connect(). */
 const BROKERS = ["wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt","wss://test.mosquitto.org:8081/"];
 const TOPIC = (room,role)=>`polduo1/${room}/${role}`;
+const PRESENCE_TOPIC = (room,role)=>`polduo1/${room}/${role}/presence`;
+const PRESENCE_STALE_MS = 35000;   // a bit more than the 20s heartbeat, so one missed beat isn't a false "offline"
 
 let S = { room:null, role:null, idx:0, intro_done:false,
   mine:{}, theirs:{},           // qname -> [value, ts]
   myCom:{}, theirCom:{},        // qname -> [text, ts]
   celebrated:false };
 let mq=null, connected=false, sawEverConnected=false;
+let theirOnline=false, theirLastSeen=0;
 let VIEW="boot";                 // home | share | welcome | flow | results
 let theirTyping=[null,0];        // [qname, ts] ephemeral
 
@@ -255,22 +263,46 @@ function connect(tryIx){
     return;
   }
   let c; try{ c = mqtt.connect(BROKERS[tryIx],{clientId:"pd_"+S.room+"_"+S.role+"_"+Math.random().toString(36).slice(2,8),
-    clean:true, connectTimeout:6000, reconnectPeriod:0, keepalive:30}); }catch(e){ connect(tryIx+1); return; }
+    clean:true, connectTimeout:6000, reconnectPeriod:0, keepalive:30,
+    will:{topic:PRESENCE_TOPIC(S.room,S.role), payload:JSON.stringify({online:false,ts:Date.now()}), qos:1, retain:true}
+    }); }catch(e){ connect(tryIx+1); return; }
   let settled=false;
   connectTimer=setTimeout(()=>{ if(!settled){ settled=true; try{ c.removeAllListeners(); c.end(true); }catch(e){} connect(tryIx+1); } },5000);
   c.on("connect",()=>{
     if(settled) return; settled=true; clearTimeout(connectTimer);
     mq=c; connected=true; sawEverConnected=true; setPill("● synced",true);
+    theirOnline=false; theirLastSeen=0; setPartnerPill();  // presence is only meaningful once we hear from them fresh
     let gotOwn=false;
     c.subscribe(TOPIC(S.room,other(S.role)),{qos:1});
     c.subscribe(TOPIC(S.room,S.role),{qos:1});             // recover own cloud state
-    c.on("message",(t,msg)=>handleMessage(t,msg,gotOwn,v=>gotOwn=v));
-    c.on("close",()=>{ if(mq===c){ connected=false; mq=null; clearInterval(heartbeatTimer); setPill("reconnecting…",false); connect(0); } });
+    c.subscribe(PRESENCE_TOPIC(S.room,other(S.role)),{qos:1});
+    publishPresence();
+    c.on("message",(t,msg)=>{
+      if(t===PRESENCE_TOPIC(S.room,other(S.role))){ handlePresence(msg); return; }
+      handleMessage(t,msg,gotOwn,v=>gotOwn=v);
+    });
+    c.on("close",()=>{ if(mq===c){ connected=false; mq=null; clearInterval(heartbeatTimer); setPill("reconnecting…",false); setPartnerPill(); connect(0); } });
     setTimeout(()=>{ publish(); },1200);
-    heartbeatTimer=setInterval(()=>{ if(connected) publish(); },20000);
+    heartbeatTimer=setInterval(()=>{
+      if(!connected) return;
+      publish(); publishPresence();      // presence is retained but NOT sticky — republish so theirLastSeen keeps meaning "confirmed recently", not "confirmed once, ever"
+      if(theirOnline && Date.now()-theirLastSeen>PRESENCE_STALE_MS){ theirOnline=false; setPartnerPill(); }
+    },10000);
     sweepOtherBrokers(tryIx);
   });
   c.on("error",()=>{ if(!settled){ settled=true; clearTimeout(connectTimer); try{ c.removeAllListeners(); c.end(true); }catch(e){} connect(tryIx+1); } });
+}
+function handlePresence(msg){
+  let d; try{ d=JSON.parse(msg.toString()); }catch(e){ return; }
+  theirOnline=!!(d&&d.online); theirLastSeen=Date.now(); setPartnerPill();
+}
+function setPartnerPill(){
+  const el=$("#partnerpill"); if(!el||!S.role) return;
+  if(!connected){ el.classList.add("hide"); return; }
+  el.classList.remove("hide");
+  const p=partner();
+  el.textContent=(theirOnline?"● ":"○ ")+p.label+(theirOnline?" online":" offline");
+  el.classList.toggle("on",theirOnline);
 }
 function sweepOtherBrokers(primaryIx){
   sweepClients.forEach(c=>{ try{ c.removeAllListeners(); c.end(true); }catch(e){} });
@@ -332,6 +364,10 @@ function publish(typing){
     connected=false; setPill("reconnecting…",false); connect();
   }
 }
+function publishPresence(online){
+  if(!mq||!connected) return;
+  try{ mq.publish(PRESENCE_TOPIC(S.room,S.role), JSON.stringify({online:online!==false,ts:Date.now()}), {retain:true,qos:1}); }catch(e){}
+}
 function publishSoon(typing){ clearTimeout(pubT); pubT=setTimeout(()=>publish(typing),280); }
 function curQ(){ return Q[S.idx]?Q[S.idx].name:null; }
 function setPill(t,ok){ const p=$("#connpill"); p.textContent=t; p.className=ok?"on":""; }
@@ -340,8 +376,12 @@ function showHeaderLinks(){
   const b=$("#linksbtn"); b.classList.remove("hide");
   b.onclick=()=>{ const pv=VIEW; renderLinks(()=>goBackFrom(pv)); };
 }
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.room){ if(!connected) connect(); else publish(); } });
-window.addEventListener("pageshow",()=>{ if(S.room){ if(!connected) connect(); else publish(); } });  // bfcache return (e.g. back from official site)
+document.addEventListener("visibilitychange",()=>{
+  if(!S.room) return;
+  if(document.hidden){ publishPresence(false); }              // best-effort courtesy signal; LWT covers a hard close
+  else{ if(!connected) connect(); else { publish(); publishPresence(true); } }
+});
+window.addEventListener("pageshow",()=>{ if(S.room){ if(!connected) connect(); else { publish(); publishPresence(true); } } });  // bfcache return (e.g. back from official site)
 
 /* refresh: re-render flow screens only; preserve comment typing */
 function refresh(needed){
