@@ -43,9 +43,9 @@ header{display:flex;align-items:center;justify-content:space-between;gap:8px;pad
   background:#fff;box-shadow:var(--hard-sm);white-space:nowrap}
 #connpill.on{background:#d7f2cf}
 #connpill.hide{display:none}
-#mylinkbtn{font-size:.7rem;font-weight:bold;color:var(--ink);border:2.5px solid var(--ink);border-radius:99px;
+#linksbtn{font-size:.7rem;font-weight:bold;color:var(--ink);border:2.5px solid var(--ink);border-radius:99px;
   padding:3px 10px;background:#fffbe0;box-shadow:var(--hard-sm);white-space:nowrap;cursor:pointer;font-family:var(--font-read)}
-#mylinkbtn.hide{display:none}
+#linksbtn.hide{display:none}
 .qdot.locked{opacity:.3;cursor:not-allowed}
 
 .card{background:var(--card);border:3px solid var(--line);border-radius:var(--radius);box-shadow:var(--hard);
@@ -180,7 +180,7 @@ footer a{color:inherit}
   <header>
     <div class="wordmark">🍋 POLITICAL DISCUSSION 🫧</div>
     <div style="display:flex;align-items:center;gap:6px">
-      <button id="mylinkbtn" class="hide" title="copy my personal link">🔗 my link</button>
+      <button id="linksbtn" class="hide" title="see and share both links">🔗 links</button>
       <div id="connpill" class="hide">connecting…</div>
     </div>
   </header>
@@ -320,9 +320,8 @@ function curQ(){ return Q[S.idx]?Q[S.idx].name:null; }
 function setPill(t,ok){ const p=$("#connpill"); p.textContent=t; p.className=ok?"on":""; }
 function showHeaderLinks(){
   $("#connpill").classList.remove("hide");
-  const b=$("#mylinkbtn"); b.classList.remove("hide");
-  b.onclick=()=>navigator.clipboard.writeText(link(S.role)).then(()=>toast("your link copied "+ROLES[S.role].emoji))
-    .catch(()=>toast(link(S.role)));
+  const b=$("#linksbtn"); b.classList.remove("hide");
+  b.onclick=()=>{ const pv=VIEW; renderLinks(()=>goBackFrom(pv)); };
 }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.room){ if(!connected) connect(); else publish(); } });
 window.addEventListener("pageshow",()=>{ if(S.room){ if(!connected) connect(); else publish(); } });  // bfcache return (e.g. back from official site)
@@ -440,6 +439,32 @@ function renderWelcome(){
     <button class="btn primary" id="go">Let's go →</button>
   </div>`;
   $("#go").onclick=()=>{ S.intro_done=true; store(); render(); };
+}
+
+function renderLinks(back){
+  VIEW="links";
+  const p=partner();
+  const mine = link(S.role), theirs = link(other(S.role));
+  const inviteThem = encodeURIComponent(`🍋🫧 POLITICAL DISCUSSION — Lemon and Sol discuss politics. This one's YOUR link, ${p.label} (keep it, tap it to answer): ${theirs}`);
+  const inviteMe = encodeURIComponent(`🍋🫧 POLITICAL DISCUSSION — here's my link, back to you: ${mine}`);
+  screen.innerHTML = `
+  <div class="card">
+    <h2>Room links 🔗</h2>
+    <p class="small">Share either one again any time — handy if a chat got cleared or someone's on a new phone.</p>
+    <p style="margin-bottom:4px"><b>${ROLES[S.role].emoji} Your link</b></p>
+    <div class="linkbox">${mine}</div>
+    <a class="btn whatsapp" href="https://wa.me/?text=${inviteMe}">Send via WhatsApp</a>
+    <button class="btn" id="cp1">Copy</button>
+    <p style="margin-bottom:4px;margin-top:16px"><b>${p.emoji} ${p.label}'s link</b></p>
+    <div class="linkbox">${theirs}</div>
+    <a class="btn whatsapp" href="https://wa.me/?text=${inviteThem}">Send via WhatsApp</a>
+    <button class="btn" id="cp2">Copy</button>
+  </div>
+  <button class="btn primary" id="linksback">← back</button>`;
+  const copy=(txt,msg)=>navigator.clipboard.writeText(txt).then(()=>toast(msg)).catch(()=>toast("couldn't auto-copy — long-press the link box instead"));
+  $("#cp1").onclick=()=>copy(mine,"your link copied "+ROLES[S.role].emoji);
+  $("#cp2").onclick=()=>copy(theirs,p.label+"'s link copied "+p.emoji);
+  $("#linksback").onclick=back;
 }
 
 function renderHow(back){
@@ -656,13 +681,14 @@ function confetti(){ const cols=["#e8433f","#f2792f","#f4c93c","#57a94e","#3a7de
     c.style.borderRadius=Math.random()>.5?"50%":"3px";
     document.body.appendChild(c); setTimeout(()=>c.remove(),6000); } }
 
-function returnFromHow(){
-  if(!S.room) renderHome();
-  else if(!S.intro_done) renderWelcome();
-  else if(answeredAll(S.mine) && S.idx>=N) renderResults();
-  else render();
+function goBackFrom(prevView){                 // overlays (Links/About) capture VIEW before opening, restore it exactly
+  if(prevView==="home") renderHome();
+  else if(prevView==="welcome") renderWelcome();
+  else if(prevView==="share") renderShare();
+  else if(prevView==="results") renderResults();
+  else render();                                // "flow" and any other case — S.idx is unchanged
 }
-$("#aboutlink").onclick=(e)=>{ e.preventDefault(); renderHow(returnFromHow); };
+$("#aboutlink").onclick=(e)=>{ e.preventDefault(); const pv=VIEW; renderHow(()=>goBackFrom(pv)); };
 boot();
 </script>
 </body>
