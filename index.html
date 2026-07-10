@@ -17,6 +17,7 @@
   --rainbow:linear-gradient(90deg,var(--rb-red),var(--rb-orange),var(--rb-yellow),var(--rb-green),var(--rb-blue),var(--rb-purple));
   --lemon:#f4c93c; --sol:#3a7de0; --agree:#57a94e; --differ:#6b3fbf;
   --font:"Comic Sans MS","Comic Sans","Chalkboard SE","Marker Felt","Segoe Print",cursive;
+  --font-read:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --radius:22px;
 }
 *{box-sizing:border-box}
@@ -42,6 +43,10 @@ header{display:flex;align-items:center;justify-content:space-between;gap:8px;pad
   background:#fff;box-shadow:var(--hard-sm);white-space:nowrap}
 #connpill.on{background:#d7f2cf}
 #connpill.hide{display:none}
+#mylinkbtn{font-size:.7rem;font-weight:bold;color:var(--ink);border:2.5px solid var(--ink);border-radius:99px;
+  padding:3px 10px;background:#fffbe0;box-shadow:var(--hard-sm);white-space:nowrap;cursor:pointer;font-family:var(--font-read)}
+#mylinkbtn.hide{display:none}
+.qdot.locked{opacity:.3;cursor:not-allowed}
 
 .card{background:var(--card);border:3px solid var(--line);border-radius:var(--radius);box-shadow:var(--hard);
   padding:20px;margin:18px 0;transform:rotate(.4deg)}
@@ -83,7 +88,8 @@ img.lemon{object-position:50% 46%}
 .progress-wrap>div{height:100%;background:var(--rainbow);background-size:250% 100%;animation:slide 7s linear infinite;transition:width .4s}
 .section-chip{display:inline-block;font-size:.8rem;background:#fff;border:2.5px dashed var(--ink);
   padding:5px 14px;border-radius:99px;margin:14px 0 2px;transform:rotate(-.8deg);box-shadow:var(--hard-sm)}
-.proposition{font-size:clamp(1.15rem,5vw,1.45rem);line-height:1.4;margin:18px 0 16px;font-weight:bold;
+.proposition{font-size:clamp(1.12rem,4.8vw,1.4rem);line-height:1.45;margin:18px 0 16px;
+  font-family:var(--font-read);font-weight:650;letter-spacing:-.01em;
   background:var(--card);border:3px solid var(--ink);border-radius:18px;padding:16px 18px;
   box-shadow:var(--hard-sm);transform:rotate(-.3deg)}
 .proposition .qq{color:var(--rb-purple)}
@@ -95,7 +101,7 @@ img.lemon{object-position:50% 46%}
 .side.me{background:#fffbe0}
 .side .who{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-top:8px;font-weight:bold}
 .pick{margin-top:7px;min-height:34px;display:flex;align-items:center;justify-content:center}
-.chip{display:inline-block;font-size:.8rem;font-weight:bold;padding:6px 10px;border-radius:99px;border:2.5px solid var(--ink)}
+.chip{display:inline-block;font-size:.8rem;font-weight:600;font-family:var(--font-read);padding:6px 10px;border-radius:99px;border:2.5px solid var(--ink)}
 .chip.a0{background:#ffd7d5}.chip.a1{background:#ffe4c9}.chip.a2{background:#d5eccf}.chip.a3{background:#b8e4b5}
 .chip.wait{background:#f1ece0;border-style:dashed;font-weight:normal;font-style:italic;color:var(--faint)}
 .verdict{text-align:center;font-size:.95rem;font-weight:bold;width:fit-content;margin:12px auto;
@@ -105,7 +111,7 @@ img.lemon{object-position:50% 46%}
 
 .answers{margin:16px 0 10px}
 .abtn{display:flex;align-items:center;gap:10px;width:100%;margin:10px 0;padding:13px 14px;border-radius:14px;
-  font-size:.95rem;font-weight:bold;font-family:var(--font);cursor:pointer;color:var(--ink);
+  font-size:.95rem;font-weight:600;font-family:var(--font-read);cursor:pointer;color:var(--ink);
   background:#fff;border:3px solid var(--ink);box-shadow:var(--hard-sm);transition:transform .07s, box-shadow .07s}
 .abtn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(28,28,28,.85)}
 .abtn .dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;border:2.5px solid var(--ink)}
@@ -171,10 +177,13 @@ footer a{color:inherit}
 <div id="app">
   <header>
     <div class="wordmark">🍋 POLITICAL DISCUSSION 🫧</div>
-    <div id="connpill" class="hide">connecting…</div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button id="mylinkbtn" class="hide" title="copy my personal link">🔗 my link</button>
+      <div id="connpill" class="hide">connecting…</div>
+    </div>
   </header>
   <main id="screen"></main>
-  <footer><span class="small">propositions &amp; scoring © <a href="https://www.politicalcompass.org">politicalcompass.org</a> · official results computed by the real site</span></footer>
+  <footer><span class="small">propositions &amp; scoring © <a href="https://www.politicalcompass.org">politicalcompass.org</a> · official results computed by the real site · v2</span></footer>
 </div>
 <div id="toast"></div>
 
@@ -278,6 +287,12 @@ function publish(typing){
 function publishSoon(typing){ clearTimeout(pubT); pubT=setTimeout(()=>publish(typing),280); }
 function curQ(){ return Q[S.idx]?Q[S.idx].name:null; }
 function setPill(t,ok){ const p=$("#connpill"); p.textContent=t; p.className=ok?"on":""; }
+function showHeaderLinks(){
+  $("#connpill").classList.remove("hide");
+  const b=$("#mylinkbtn"); b.classList.remove("hide");
+  b.onclick=()=>navigator.clipboard.writeText(link(S.role)).then(()=>toast("your link copied "+ROLES[S.role].emoji))
+    .catch(()=>toast(link(S.role)));
+}
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&S.room){ if(mq&&!connected) mq.reconnect?.(); publish(); } });
 window.addEventListener("pageshow",()=>{ if(S.room){ if(mq&&!connected) mq.reconnect?.(); publish(); } });  // bfcache return (e.g. back from official site)
 
@@ -310,7 +325,7 @@ function boot(){
   if(location.hash.endsWith("/done")) S.idx=N;
   else if(h.q && h.q>=1 && h.q<=N) S.idx=h.q-1;
   store(); connect();
-  $("#connpill").classList.remove("hide");
+  showHeaderLinks();
   if(!S.intro_done) renderWelcome(); else render();
 }
 function renderRoleGuard(saved,h){
@@ -345,9 +360,8 @@ function renderHome(){
     </div>
     <button class="btn primary" id="mkroom">Create our room →</button>
   </div>
-  <div class="card small">
-    <b>How saving works:</b> no accounts, nothing to install. Answers save to this phone <i>and</i> to your shared room in the cloud. You each get a personal link — keep it in the WhatsApp chat and tap it any time to jump straight back in, even if this window closes. 🌈
-  </div>`;
+  <button class="btn" id="how">how this works 🌈</button>`;
+  $("#how").onclick=()=>renderHow(renderHome);
   let picked="L";
   const re=()=>{ $("#pickL").classList.toggle("on",picked==="L"); $("#pickG").classList.toggle("on",picked==="G"); };
   $("#pickL").onclick=()=>{picked="L";re();};
@@ -355,7 +369,7 @@ function renderHome(){
   $("#mkroom").onclick=()=>{
     const room = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b=>"abcdefghjkmnpqrstuvwxyz23456789"[b%31]).join("");
     S={room,role:picked,idx:0,intro_done:true,mine:{},theirs:{},myCom:{},theirCom:{},celebrated:false};
-    store(); connect(); $("#connpill").classList.remove("hide"); renderShare();
+    store(); connect(); showHeaderLinks(); renderShare();
   };
 }
 
@@ -394,8 +408,45 @@ function renderWelcome(){
     <p>62 propositions about how you see the world. Pick your answer, and <b>only then</b> is ${partner().label}'s revealed. Agree, clash, then head back to WhatsApp to fight it out. 💬</p>
     <p class="small"><b>Saving:</b> automatic — to this phone and to your shared room. Keep your personal link in the chat; tapping it always resumes exactly where you were. No account, nothing to lose.</p>
     <button class="btn primary" id="go">Let's go →</button>
+    <button class="btn ghost" id="how">how this works 🌈</button>
   </div>`;
   $("#go").onclick=()=>{ S.intro_done=true; store(); render(); };
+  $("#how").onclick=()=>renderHow(renderWelcome);
+}
+
+function renderHow(back){
+  VIEW="how";
+  screen.innerHTML = `
+  <div class="card">
+    <h2>How this works 🌈</h2>
+    <p><b>One question at a time, in order.</b> Pick your answer — <b>only then</b> is the other one's revealed. No peeking, no bias, and <b>no skipping ahead</b> — you can always look back at anything you've already answered. Drop a comment, hop back to WhatsApp to argue, come back for the next one. 62 propositions, 6 parts.</p>
+    <p class="small">Your personal link is always in the header (the 🔗 button) — tap it any time to copy it, in case you need to re-send it or jump back in on another device.</p>
+    <p><b>At the end</b> you both land on one compass — two dots, side by side — and each of you can open your <b>official</b> result, computed by the real politicalcompass.org from your actual answers.</p>
+  </div>
+  <div class="card">
+    <h2>Setting up 🚪</h2>
+    <p><b>One of you creates the room</b> (front page → "Create our room"). That person gets <b>both links</b> on the next screen.</p>
+    <p><b>Send the other one their link</b> — there's a "send via WhatsApp" button that writes the message for you. That message in your chat <b>is</b> the invitation: the other person just taps it and starts answering. WhatsApp is the notification system — there's nothing else to watch.</p>
+    <p>Then drop <b>your own</b> link into the chat too, so both links stay pinned where you can always find them.</p>
+  </div>
+  <div class="card">
+    <h2>Your links 🔗</h2>
+    <p>It's <b>one room with two personal links</b> — same room code, your identity on the end: <b>…/L</b> is Lemon 🍋, <b>…/G</b> is Sol 🫧.</p>
+    <p><b>Your link is your identity.</b> Only ever tap your own — if you tap the wrong one, the app notices and asks.</p>
+  </div>
+  <div class="card">
+    <h2>Saving — progress is never lost 💾</h2>
+    <p>Every tap saves <b>twice</b>: on this phone, and to your shared room in the cloud.</p>
+    <p>Close this window whenever you like, even mid-question. <b>Tapping your personal link always brings everything back</b> — answers, comments, your place — even in a fresh browser with no history at all. That's the whole method: the link in your chat is the key.</p>
+    <p class="small">No accounts, nothing to install. Your room lives under an unguessable code — just don't post your links anywhere public.</p>
+  </div>
+  <div class="card">
+    <h2>Who sees what 👀</h2>
+    <p>They see your answer to a question <b>only once they've answered it too</b> — and the same goes for comments.</p>
+    <p>Comments are <b>live</b>: after you've both answered, they can literally watch you type ("Lemon is thinking…"). You can revisit any answered question to reread both answers and comments — or change yours; they'll see the update.</p>
+  </div>
+  <button class="btn primary" id="howback">← got it</button>`;
+  $("#howback").onclick=back;
 }
 
 function render(){
@@ -457,8 +508,9 @@ function render(){
   ${answeredAll(S.mine)&&S.idx<N-1?`<button class="btn primary" id="jumpres">see the results ✨</button>`:""}
   <div class="navrow">
     <button class="btn" id="prev" ${S.idx===0?"disabled":""}>← Back</button>
-    <button class="btn" id="next">${S.idx===N-1?(answeredAll(S.mine)?"Results ✨":"Next →"):"Next →"}</button>
+    <button class="btn" id="next" ${my===undefined?"disabled":""}>${S.idx===N-1?(answeredAll(S.mine)?"Results ✨":"Next →"):"Next →"}</button>
   </div>
+  ${my===undefined?`<p class="small" style="text-align:center">pick an answer above to continue — you can't skip a question</p>`:""}
   <details style="margin-top:16px"><summary class="small" style="cursor:pointer">all questions</summary><div id="dots"></div></details>`;
 
   document.querySelectorAll(".abtn").forEach(b=>{
@@ -480,15 +532,19 @@ function render(){
   $("#prev").onclick=()=>{ if(S.idx>0){S.idx--; render();} };
   const jr=$("#jumpres"); if(jr) jr.onclick=()=>{ S.idx=N; renderResults(); };
   $("#next").onclick=()=>{
+    if(my===undefined) return;                    // can't skip — no answer, no advance
     if(S.idx===N-1){ if(answeredAll(S.mine)){ S.idx=N; renderResults(); } else { gotoUnanswered(); } }
     else { S.idx++; render(); }
   };
+  const firstUnanswered = Q.findIndex(qq=>S.mine[qq.name]===undefined);
+  const maxReach = firstUnanswered===-1 ? N-1 : firstUnanswered;   // reachable: anything answered, or the very next one
   const dots=$("#dots");
   Q.forEach((qq,i)=>{
     const d=document.createElement("button"); d.className="qdot";
     if(S.mine[qq.name]!==undefined) d.classList.add(S.theirs[qq.name]!==undefined?"both":"mine");
     if(i===S.idx) d.classList.add("cur");
-    d.title=`Q${i+1}`; d.onclick=()=>{S.idx=i;render();};
+    if(i>maxReach){ d.classList.add("locked"); d.disabled=true; d.title=`Q${i+1} — answer the current one first`; }
+    else { d.title=`Q${i+1}`; d.onclick=()=>{S.idx=i;render();}; }
     dots.appendChild(d);
   });
 }
