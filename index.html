@@ -131,6 +131,48 @@ summary.small{display:inline-block;background:rgba(255,255,255,.88);border-radiu
 .combox{margin-top:18px;background:rgba(255,255,255,.66);border-radius:18px;padding:12px}
 .comlabel{font-size:.82rem;font-weight:bold;color:var(--ink);margin:10px 4px 6px}
 .thinking{font-size:.85rem;font-weight:bold;color:var(--rb-purple);min-height:20px;margin:0 4px 4px}
+
+/* results entrance — plays once per visit, each card pops in on a stagger; keeps each card's own resting tilt */
+@keyframes revealPop{
+  0%{opacity:0; transform:translateY(26px) scale(.9) rotate(calc(var(--tilt,.4deg) - 5deg));}
+  55%{opacity:1; transform:translateY(-5px) scale(1.035) rotate(calc(var(--tilt,.4deg) + 1.2deg));}
+  100%{opacity:1; transform:translateY(0) scale(1) rotate(var(--tilt,.4deg));}
+}
+.reveal-enter .card{--tilt:.4deg; animation:revealPop .65s cubic-bezier(.22,1.4,.36,1) both}
+.reveal-enter .card:nth-of-type(2n){--tilt:-.45deg}
+.reveal-enter .card:nth-of-type(1){animation-delay:.03s}
+.reveal-enter .card:nth-of-type(2){animation-delay:.16s}
+.reveal-enter .card:nth-of-type(3){animation-delay:.29s}
+.reveal-enter .card:nth-of-type(4){animation-delay:.42s}
+.reveal-enter .card:nth-of-type(5){animation-delay:.55s}
+.reveal-enter .card:nth-of-type(6){animation-delay:.68s}
+.reveal-enter .card:nth-of-type(n+7){animation-delay:.8s}
+.reveal-enter .score-pair .card{animation-delay:.16s}
+
+/* agreement stats */
+.stackbar{display:flex;height:22px;border:2.5px solid var(--ink);border-radius:99px;overflow:hidden;box-shadow:var(--hard-sm);margin:10px 0}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:.78rem;color:var(--faint);font-family:var(--font-read);margin-top:6px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:11px;height:11px;border-radius:3px;border:1.5px solid var(--ink);display:inline-block}
+.agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(13px,1fr));gap:4px;margin:12px 0}
+.adot{aspect-ratio:1;border-radius:4px;border:1.5px solid var(--ink);padding:0}
+.adot.exact{background:var(--rb-green)}
+.adot.aligned{background:var(--rb-yellow)}
+.adot.soft{background:var(--rb-orange)}
+.adot.moderate{background:#e06b4f}
+.adot.polar{background:var(--rb-red);box-shadow:0 0 0 2px #fff inset}
+.stat-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.stat-tile{background:#fff;border:2.5px solid var(--ink);border-radius:14px;padding:10px;text-align:center;box-shadow:var(--hard-sm)}
+.stat-tile .n{font-size:1.3rem;font-weight:bold;font-family:var(--font-read)}
+.stat-tile .l{font-size:.72rem;color:var(--faint);font-family:var(--font-read)}
+.sec-row{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:.85rem;font-family:var(--font-read)}
+.sec-row .lbl{width:112px;flex-shrink:0}
+.sec-row .bar{flex:1;height:12px;border-radius:6px;background:#f1ece0;border:1.5px solid var(--ink);overflow:hidden}
+.sec-row .bar>div{height:100%;background:var(--rb-green)}
+.sec-row .pct{width:38px;text-align:right;flex-shrink:0;font-weight:bold}
+.qrow{margin:6px 0;padding:8px 10px;background:#fff;border:2px solid var(--ink);border-radius:12px;font-size:.85rem;font-family:var(--font-read)}
+.qrow b{font-family:var(--font-read)}
+.facts li{margin:6px 0;line-height:1.4}
 .thinking .dots::after{content:"";animation:think 1.4s steps(4,end) infinite}
 @keyframes think{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 .combubble{background:#eef3ff;border:2.5px solid var(--ink);border-radius:16px;border-bottom-left-radius:4px;
@@ -202,6 +244,9 @@ const BROKERS = ["wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/
 const TOPIC = (room,role)=>`polduo1/${room}/${role}`;
 const PRESENCE_TOPIC = (room,role)=>`polduo1/${room}/${role}/presence`;
 const PRESENCE_STALE_MS = 35000;   // a bit more than the 20s heartbeat, so one missed beat isn't a false "offline"
+const RESULTS_KEY = "__results__";       // reuses the same myCom/theirCom/theirTyping machinery as per-question comments
+const SECTION_LABELS = {1:"Country & World", 2:"Economy", 3:"Personal & Social", 4:"Wider Society", 5:"Religion", 6:"Sex"};
+let resultsEntranceShown=false;          // true once the dramatic entrance has played for THIS visit to results
 
 let S = { room:null, role:null, idx:0, intro_done:false,
   mine:{}, theirs:{},           // qname -> [value, ts]
@@ -235,6 +280,8 @@ function rawScore(ansMap){
 }
 const rhalf = x=> Math.sign(x)*Math.round(Math.abs(x)*100)/100;   // site rounds half away from zero
 function finalScore(ansMap){ const [e,s]=rawScore(ansMap); return [rhalf(e/PC_DATA.DIV[0]), rhalf(s/PC_DATA.DIV[1])]; }
+const oneAxis=(v,neg,pos)=>v>0?pos:v<0?neg:"Centrist";
+const axisLabel=([ec,soc])=>`${oneAxis(ec,"Left","Right")} · ${oneAxis(soc,"Libertarian","Authoritarian")}`;   // matches politicalcompass.org's own convention
 
 /* ═══════════ sync: MQTT retained + localStorage ═══════════
    IMPORTANT: retained state on broker.emqx.io, broker.hivemq.com and
@@ -540,6 +587,7 @@ function render(){
   if(!S.room){ renderHome(); return; }
   if(answeredAll(S.mine) && S.idx>=N){ renderResults(); return; }
   VIEW="flow";
+  resultsEntranceShown=false;    // next arrival at results (from any question) plays the entrance fresh
   if(S.idx>=N || S.idx<0){            // e.g. /done link on a device whose cloud state hasn't arrived yet
     const i=Q.findIndex(qq=>S.mine[qq.name]===undefined);
     S.idx = i>=0 ? i : 0;
@@ -640,19 +688,20 @@ function render(){
   });
 }
 function tickThinking(){                      // light DOM patches only — no full re-render, so typing focus never gets disturbed
-  const q=Q[S.idx]; if(!q) return;
+  const key = VIEW==="results" ? RESULTS_KEY : (Q[S.idx]?Q[S.idx].name:null);
+  if(!key) return;
   const p=partner();
   const el=$("#thinkline");
   if(el){
-    const tc=S.theirCom[q.name];
-    const typingNow = theirTyping[0]===q.name && (Date.now()-theirTyping[1])<5000;
+    const tc=S.theirCom[key];
+    const typingNow = theirTyping[0]===key && (Date.now()-theirTyping[1])<5000;
     el.innerHTML = typingNow?`${p.label} is thinking<span class="dots"></span>`:(tc&&tc[0]?`${p.label} says:`:"");
     const bub=$("#theirbubble");
     if(bub&&tc&&tc[0]){ bub.className="combubble"; bub.innerHTML=esc(tc[0]); }
   }
-  if(S.theirs[q.name]===undefined){                          // they haven't answered this one — keep their status chip live
+  if(VIEW==="flow" && S.theirs[key]===undefined){              // they haven't answered this one — keep their status chip live
     const pickEl=$("#side"+other(S.role)+" .pick");
-    if(pickEl) pickEl.innerHTML=`<span class="chip wait">${theirCurQ===q.name?"…thinking":"…not here yet"}</span>`;
+    if(pickEl) pickEl.innerHTML=`<span class="chip wait">${theirCurQ===key?"…thinking":"…not here yet"}</span>`;
   }
 }
 setInterval(tickThinking,1500);
@@ -678,7 +727,16 @@ function renderResults(){
   const p=partner();
   const meDone=answeredAll(S.mine), sheDone=answeredAll(S.theirs);
   const me=meDone?finalScore(S.mine):null, her=sheDone?finalScore(S.theirs):null;
-  if(meDone&&sheDone&&!S.celebrated){ S.celebrated=true; store(); confetti(); }
+  const bothDone=meDone&&sheDone;
+  const firstEntrance=!resultsEntranceShown; resultsEntranceShown=true;
+  if(bothDone&&!S.celebrated){ S.celebrated=true; store(); confetti(); }
+  else if(firstEntrance) confetti(36);
+
+  const tc=S.theirCom[RESULTS_KEY];
+  const typingNow=theirTyping[0]===RESULTS_KEY&&(Date.now()-theirTyping[1])<5000;
+  const stats=bothDone?computeAgreementStats():null;
+
+  screen.className=firstEntrance?"reveal-enter":"";
   screen.innerHTML = `
   <div class="card" style="text-align:center">
     <h1>the reveal ✨</h1>
@@ -687,9 +745,11 @@ function renderResults(){
   </div>
   <div class="score-pair">
     <div class="card">${avatar(S.role,"av-sm")}<div class="who small">${ROLES[S.role].label} (you)</div>
-      <div class="score-big">${me?`${me[0]} · ${me[1]}`:"—"}</div><div class="small">economic · social</div></div>
+      <div class="score-big">${me?`${me[0]} · ${me[1]}`:"—"}</div><div class="small">economic · social</div>
+      <div class="small">${me?axisLabel(me):""}</div></div>
     <div class="card">${avatar(other(S.role),"av-sm")}<div class="who small">${p.label}</div>
-      <div class="score-big">${her?`${her[0]} · ${her[1]}`:"…"}</div><div class="small">economic · social</div></div>
+      <div class="score-big">${her?`${her[0]} · ${her[1]}`:"…"}</div><div class="small">economic · social</div>
+      <div class="small">${her?axisLabel(her):""}</div></div>
   </div>
   <div class="card">${compassSVG(me,her)}
     <p class="small" style="text-align:center">${me&&her?`you two are ${Math.hypot(me[0]-her[0],me[1]-her[1]).toFixed(1)} units apart 💞`:""}</p>
@@ -701,10 +761,132 @@ function renderResults(){
     <button class="btn" id="offher" ${sheDone?"":"disabled"}>Open ${p.label.toUpperCase()}'S official result ${p.emoji}</button>
     <a class="btn whatsapp" href="whatsapp://">💬 Back to WhatsApp</a>
   </div>
+  <div class="card">
+    <h2>What did you think? 💬</h2>
+    <div class="thinking" id="thinkline">${typingNow?`${p.label} is thinking<span class="dots"></span>`:(tc&&tc[0]?`${p.label} says:`:"")}</div>
+    ${tc&&tc[0]?`<div class="combubble" id="theirbubble">${esc(tc[0])}</div>`:`<div id="theirbubble"></div>`}
+    <div class="comlabel">Write your thoughts on your overall score, the other person can see this…</div>
+    <textarea class="mycom" maxlength="500" placeholder="say something about your results… 💬"></textarea>
+  </div>
+  ${bothDone?renderAgreementSection(stats):`<div class="card"><h2>How aligned are you? 🔍</h2><p class="small">This appears once you're both done — ${p.label} is at ${countAns(S.theirs)}/${N}.</p></div>`}
   <button class="btn ghost small" id="back">← back to the questions</button>`;
   $("#offme").onclick=()=>officialForm(S.mine);
   $("#offher").onclick=()=>{ if(sheDone) officialForm(S.theirs); };
   $("#back").onclick=()=>{ S.idx=N-1; render(); };
+  const ta=$("textarea.mycom");
+  if(ta){
+    const mc=S.myCom[RESULTS_KEY]; if(mc) ta.value=mc[0];
+    autoGrow(ta);
+    ta.addEventListener("input",()=>{
+      S.myCom[RESULTS_KEY]=[ta.value,Date.now()]; store();
+      publishSoon([RESULTS_KEY,Date.now()]);
+      autoGrow(ta);
+    });
+  }
+}
+/* ═══════════ agreement stats — nuanced same-side-different-degree vs genuine opposite-side clashes ═══════════ */
+function computeAgreementStats(){
+  let exact=0, aligned=0, oppSoft=0, oppMod=0, oppPolar=0;
+  const bySection={}, divergences=[], convictions=[];
+  for(const q of Q){
+    const m=S.mine[q.name], h=S.theirs[q.name]; if(!m||!h) continue;
+    const mv=m[0], hv=h[0], dist=Math.abs(mv-hv);
+    const sideM=mv>=2?1:0, sideH=hv>=2?1:0;
+    let cat;
+    if(dist===0){ cat="exact"; exact++; if(mv===0||mv===3) convictions.push({q,val:mv}); }
+    else if(sideM===sideH){ cat="aligned"; aligned++; }
+    else{ cat="opposite"; if(dist===3){ oppPolar++; divergences.push({q,mine:mv,theirs:hv}); } else if(dist===2) oppMod++; else oppSoft++; }
+    const sec=bySection[q.page]||(bySection[q.page]={total:0,exact:0,aligned:0,opposite:0});
+    sec.total++; sec[cat]++;
+  }
+  const total=exact+aligned+oppSoft+oppMod+oppPolar, opposite=oppSoft+oppMod+oppPolar;
+  const perSection=Object.keys(bySection).sort((a,b)=>a-b).map(pg=>{
+    const s=bySection[pg];
+    return {page:+pg, label:SECTION_LABELS[pg]||("Part "+pg), ...s, alignedPct:Math.round((s.exact+s.aligned)/s.total*100)};
+  });
+  return {total, exact, aligned, opposite, oppSoft, oppMod, oppPolar, perSection, divergences, convictions};
+}
+const pct=(n,total)=>total?Math.round(n/total*100):0;
+function buildFacts(s){
+  const facts=[]; const alignedTotal=s.exact+s.aligned;
+  facts.push(`You're aligned — agreeing, even if not always by the same degree — on <b>${alignedTotal}/${s.total}</b> propositions (${pct(alignedTotal,s.total)}%).`);
+  if(s.aligned>0) facts.push(`On <b>${s.aligned}</b> of those, you're on the same side but feel it differently — one of you is just more emphatic than the other.`);
+  if(s.oppPolar>0) facts.push(`You're flat-out polar opposites — Strongly vs Strongly — on <b>${s.oppPolar}</b> proposition${s.oppPolar>1?"s":""}. Your sharpest divides.`);
+  else if(s.opposite>0) facts.push(`You land on opposite sides <b>${s.opposite}</b> time${s.opposite>1?"s":""}, but none of it is extreme — no Strongly-vs-Strongly clashes.`);
+  else facts.push(`You never once landed on opposite sides. Suspiciously compatible.`);
+  if(s.convictions.length) facts.push(`You share <b>${s.convictions.length}</b> rock-solid conviction${s.convictions.length>1?"s":""} — moments where you both picked the strongest possible answer, together.`);
+  const bySec=s.perSection.slice().sort((a,b)=>b.alignedPct-a.alignedPct);
+  if(bySec.length>1 && bySec[0].label!==bySec[bySec.length-1].label){
+    const best=bySec[0], worst=bySec[bySec.length-1];
+    facts.push(`Most aligned on <b>${best.label}</b> (${best.alignedPct}%), least on <b>${worst.label}</b> (${worst.alignedPct}%).`);
+  }
+  return facts;
+}
+function renderAgreementSection(s){
+  const catClass=(mv,hv)=>{ const d=Math.abs(mv-hv); if(d===0) return "exact"; const sM=mv>=2?1:0, sH=hv>=2?1:0;
+    return sM===sH?"aligned":(d===3?"polar":d===2?"moderate":"soft"); };
+  const dotsHtml=Q.map(q=>{
+    const m=S.mine[q.name],h=S.theirs[q.name]; const mv=m[0],hv=h[0]; const cls=catClass(mv,hv);
+    return `<button class="adot ${cls}" title="${esc(q.text)} — you: ${LABELS[mv]}, ${partner().label}: ${LABELS[hv]}" disabled></button>`;
+  }).join("");
+  const secRows=s.perSection.map(sec=>`
+    <div class="sec-row"><div class="lbl">${sec.label}</div>
+      <div class="bar"><div style="width:${sec.alignedPct}%"></div></div>
+      <div class="pct">${sec.alignedPct}%</div></div>`).join("");
+  const divRows=s.divergences.slice(0,6).map(d=>`
+    <div class="qrow"><b>${ROLES[S.role].emoji} ${LABELS[d.mine]}</b> vs <b>${partner().emoji} ${LABELS[d.theirs]}</b><br>${esc(d.q.text)}</div>`).join("")
+    || `<p class="small">None — no proposition split you to the extremes. 🎉</p>`;
+  const convRows=s.convictions.slice(0,6).map(c=>`
+    <div class="qrow"><b>${LABELS[c.val]}, together</b><br>${esc(c.q.text)}</div>`).join("")
+    || `<p class="small">No shared extreme convictions yet — plenty of middle ground.</p>`;
+  const facts=buildFacts(s).map(f=>`<li>${f}</li>`).join("");
+  const w=t=>Math.max(pct(t,s.total),t>0?2:0);   // keep a sliver visible even for small nonzero slices
+  return `
+  <div class="card">
+    <h2>How aligned are you? 🔍</h2>
+    <p class="small">Beyond simple agree/disagree — this counts <b>degree</b>, not just direction. Same side, different intensity, still counts as aligned.</p>
+    <div class="stat-tiles">
+      <div class="stat-tile"><div class="n">${s.exact}</div><div class="l">exact match</div></div>
+      <div class="stat-tile"><div class="n">${s.aligned}</div><div class="l">same side, different degree</div></div>
+      <div class="stat-tile"><div class="n">${s.opposite}</div><div class="l">opposite sides</div></div>
+      <div class="stat-tile"><div class="n">${s.oppPolar}</div><div class="l">polar opposite</div></div>
+    </div>
+    <div class="stackbar">
+      <div style="width:${w(s.exact)}%;background:var(--rb-green)" title="Exact match: ${s.exact}"></div>
+      <div style="width:${w(s.aligned)}%;background:var(--rb-yellow)" title="Aligned, different degree: ${s.aligned}"></div>
+      <div style="width:${w(s.oppSoft)}%;background:var(--rb-orange)" title="Soft clash: ${s.oppSoft}"></div>
+      <div style="width:${w(s.oppMod)}%;background:#e06b4f" title="Moderate clash: ${s.oppMod}"></div>
+      <div style="width:${w(s.oppPolar)}%;background:var(--rb-red)" title="Polar opposite: ${s.oppPolar}"></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--rb-green)"></i>exact</span>
+      <span><i style="background:var(--rb-yellow)"></i>aligned, different degree</span>
+      <span><i style="background:var(--rb-orange)"></i>soft clash</span>
+      <span><i style="background:#e06b4f"></i>moderate clash</span>
+      <span><i style="background:var(--rb-red)"></i>polar opposite</span>
+    </div>
+  </div>
+  <div class="card">
+    <h2>By topic 📊</h2>
+    ${secRows}
+  </div>
+  <div class="card">
+    <h2>Every proposition, at a glance</h2>
+    <p class="small">Hover any square for the question and both your answers.</p>
+    <div class="agrid">${dotsHtml}</div>
+  </div>
+  <div class="card">
+    <h2>Your sharpest divides ⚡</h2>
+    ${divRows}
+  </div>
+  <div class="card">
+    <h2>Your strongest shared convictions 🤝</h2>
+    ${convRows}
+  </div>
+  <div class="card">
+    <h2>Interesting facts</h2>
+    <ul class="facts">${facts}</ul>
+  </div>`;
 }
 function compassSVG(me,her){
   const P=(pt)=>[210+pt[0]*19, 210-pt[1]*19];
@@ -738,8 +920,8 @@ function sparkle(host){ if(!host) return;
     s.style.left=(30+Math.random()*40)+"%"; s.style.top=(30+Math.random()*30)+"%";
     s.style.setProperty("--dx",(Math.random()*80-40)+"px"); s.style.setProperty("--dy",(-30-Math.random()*50)+"px");
     host.appendChild(s); setTimeout(()=>s.remove(),950); } }
-function confetti(){ const cols=["#e8433f","#f2792f","#f4c93c","#57a94e","#3a7de0","#6b3fbf"];
-  for(let i=0;i<100;i++){ const c=document.createElement("div"); c.className="confetti";
+function confetti(count){ count=count||100; const cols=["#e8433f","#f2792f","#f4c93c","#57a94e","#3a7de0","#6b3fbf"];
+  for(let i=0;i<count;i++){ const c=document.createElement("div"); c.className="confetti";
     c.style.left=Math.random()*100+"vw"; c.style.background=cols[i%6];
     c.style.animationDuration=(2.2+Math.random()*2.5)+"s"; c.style.animationDelay=(Math.random()*0.9)+"s";
     c.style.borderRadius=Math.random()>.5?"50%":"3px";
