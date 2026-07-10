@@ -211,6 +211,7 @@ let mq=null, connected=false, sawEverConnected=false;
 let theirOnline=false, theirLastSeen=0;
 let VIEW="boot";                 // home | share | welcome | flow | results
 let theirTyping=[null,0];        // [qname, ts] ephemeral
+let theirCurQ=null;              // question name the partner is currently viewing (ephemeral, for "…thinking" vs "…not here yet")
 
 const $ = s=>document.querySelector(s);
 const screen = $("#screen");
@@ -286,9 +287,11 @@ function connect(tryIx){
   });
   c.on("error",()=>{ if(!settled){ settled=true; clearTimeout(connectTimer); try{ c.removeAllListeners(); c.end(true); }catch(e){} connect(tryIx+1); } });
 }
+let theirPresenceTs=0;
 function handlePresence(msg){
   let d; try{ d=JSON.parse(msg.toString()); }catch(e){ return; }
-  theirOnline=!!(d&&d.online); theirLastSeen=Date.now(); refreshConnPill();
+  if(!d||typeof d.ts!=="number"||d.ts<theirPresenceTs) return;   // stale/out-of-order — a fresher signal already applied
+  theirPresenceTs=d.ts; theirOnline=!!d.online; theirLastSeen=Date.now(); refreshConnPill();
 }
 function refreshConnPill(){                 // simple swap: "● synced" becomes "● Online" once the partner is confirmed online
   if(!connected) return;                     // connecting/reconnecting/offline text is set directly where those happen
@@ -306,8 +309,12 @@ function sweepOtherBrokers(primaryIx){
     c.on("connect",()=>{
       c.subscribe(TOPIC(S.room,other(S.role)),{qos:1});
       c.subscribe(TOPIC(S.room,S.role),{qos:1});
+      c.subscribe(PRESENCE_TOPIC(S.room,other(S.role)),{qos:1});   // presence needs the same cross-broker recovery as answers —
+    });                                                             // if the partner's primary landed on a different broker, this is the only way we ever see them online
+    c.on("message",(t,msg)=>{
+      if(t===PRESENCE_TOPIC(S.room,other(S.role))){ handlePresence(msg); return; }
+      handleMessage(t,msg,gotOwn,v=>gotOwn=v);
     });
-    c.on("message",(t,msg)=>handleMessage(t,msg,gotOwn,v=>gotOwn=v));
     c.on("error",()=>{});
     setTimeout(()=>{ try{ c.removeAllListeners(); c.end(true); }catch(e){} },3000);   // plenty of time for retained delivery
   });
@@ -325,6 +332,7 @@ function handleMessage(t,msg,gotOwn,setGotOwn){
   const chAns = mergeInto(S.theirs, d.ans||{});
   mergeInto(S.theirCom, d.com||{});
   if(Array.isArray(d.typing)) theirTyping=d.typing;
+  if("curq" in d) theirCurQ=d.curq;
   store();
   const cur=curQ();
   const revealNow = chAns && S.mine[cur]!==undefined && S.theirs[cur]!==undefined;
@@ -345,7 +353,7 @@ function publish(typing){
   if(!mq||!connected) return;
   try{
     mq.publish(TOPIC(S.room,S.role), JSON.stringify({v:1,self:myTag,role:S.role,ans:S.mine,com:S.myCom,
-      typing:typing||[null,0],done:answeredAll(S.mine),updated:Date.now()}), {retain:true,qos:1});
+      typing:typing||[null,0],curq:curQ(),done:answeredAll(S.mine),updated:Date.now()}), {retain:true,qos:1});
   }catch(e){
     /* mqtt.js can flag a client "disconnecting" internally before its async close
        event fires, leaving our connected flag briefly stale — never let that throw
@@ -541,15 +549,16 @@ function render(){
   const revealed = my!==undefined && th!==undefined;
   const firstOfPage = S.idx===0 || Q[S.idx-1].page!==q.page;
   const p=partner();
-  setHash(); store();
+  setHash(); store(); publishSoon();   // let the partner's "…thinking" vs "…not here yet" know where we are
 
   const sideHtml = (roleKey)=>{
     const r=ROLES[roleKey], isMe=roleKey===S.role;
     const a = isMe? my : th;
     let pick;
+    const theyAreHere = theirCurQ===q.name ? "…thinking" : "…not here yet";
     if(isMe) pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">pick below…</span>`;
-    else if(my===undefined) pick = a!==undefined? `<span class="chip wait">🔒 answered — yours first!</span>` : `<span class="chip wait">…thinking</span>`;
-    else pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">waiting for ${r.label}…</span>`;
+    else if(my===undefined) pick = a!==undefined? `<span class="chip wait">🔒 answered — yours first!</span>` : `<span class="chip wait">${theyAreHere}</span>`;
+    else pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">${theyAreHere}</span>`;
     return `<div class="side ${roleKey} ${isMe?"me":""}" id="side${roleKey}">${avatar(roleKey,"av-sm")}
       <div class="who">${r.label}${isMe?" (you)":""}</div><div class="pick">${pick}</div></div>`;
   };
@@ -624,19 +633,27 @@ function render(){
     const d=document.createElement("button"); d.className="qdot";
     if(S.mine[qq.name]!==undefined) d.classList.add(S.theirs[qq.name]!==undefined?"both":"mine");
     if(i===S.idx) d.classList.add("cur");
-    if(i>maxReach){ d.classList.add("locked"); d.disabled=true; d.title=`Q${i+1} — answer the current one first`; }
-    else { d.title=`Q${i+1}`; d.onclick=()=>{S.idx=i;render();}; }
+    d.title=`Q${i+1} — ${qq.text}`;
+    if(i>maxReach){ d.classList.add("locked"); d.disabled=true; }
+    else { d.onclick=()=>{S.idx=i;render();}; }
     dots.appendChild(d);
   });
 }
-function tickThinking(){                      // light update of the thinking line only
-  const el=$("#thinkline"); if(!el) return;
+function tickThinking(){                      // light DOM patches only — no full re-render, so typing focus never gets disturbed
   const q=Q[S.idx]; if(!q) return;
-  const p=partner(); const tc=S.theirCom[q.name];
-  const typingNow = theirTyping[0]===q.name && (Date.now()-theirTyping[1])<5000;
-  el.innerHTML = typingNow?`${p.label} is thinking<span class="dots"></span>`:(tc&&tc[0]?`${p.label} says:`:"");
-  const bub=$("#theirbubble");
-  if(bub&&tc&&tc[0]){ bub.className="combubble"; bub.innerHTML=esc(tc[0]); }
+  const p=partner();
+  const el=$("#thinkline");
+  if(el){
+    const tc=S.theirCom[q.name];
+    const typingNow = theirTyping[0]===q.name && (Date.now()-theirTyping[1])<5000;
+    el.innerHTML = typingNow?`${p.label} is thinking<span class="dots"></span>`:(tc&&tc[0]?`${p.label} says:`:"");
+    const bub=$("#theirbubble");
+    if(bub&&tc&&tc[0]){ bub.className="combubble"; bub.innerHTML=esc(tc[0]); }
+  }
+  if(S.theirs[q.name]===undefined){                          // they haven't answered this one — keep their status chip live
+    const pickEl=$("#side"+other(S.role)+" .pick");
+    if(pickEl) pickEl.innerHTML=`<span class="chip wait">${theirCurQ===q.name?"…thinking":"…not here yet"}</span>`;
+  }
 }
 setInterval(tickThinking,1500);
 function gotoUnanswered(){
