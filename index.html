@@ -234,63 +234,80 @@ const rhalf = x=> Math.sign(x)*Math.round(Math.abs(x)*100)/100;   // site rounds
 function finalScore(ansMap){ const [e,s]=rawScore(ansMap); return [rhalf(e/PC_DATA.DIV[0]), rhalf(s/PC_DATA.DIV[1])]; }
 
 /* ═══════════ sync: MQTT retained + localStorage ═══════════
-   Some networks block a broker's non-standard WSS port but not another's, so every
-   connect() attempt RACES all brokers in parallel and keeps whichever answers first —
-   this finds a working port automatically instead of guessing one. A 7s watchdog
-   restarts the race if none answer; a 20s heartbeat republishes full state while
-   connected, guarding against a public broker silently losing retained messages. */
-let raceClients=[], raceTimer=null, heartbeatTimer=null;
-function connect(){
+   IMPORTANT: retained state on broker.emqx.io, broker.hivemq.com and
+   test.mosquitto.org are three ENTIRELY SEPARATE stores — a message retained on
+   one is invisible on the others. So connect() tries brokers in a FIXED, identical
+   order on every device (never a race), which means every participant in a room
+   converges on the SAME primary broker — the one that's actually been holding this
+   room's history. On top of that, sweepOtherBrokers() briefly taps the other two
+   brokers on every connect and merges in anything found there (harmless — merge is
+   always newest-wins-additive) — this is what self-heals a room that ever got
+   split across brokers by a past bug, without needing to know which broker it's on. */
+let connectTimer=null, sweepClients=[], heartbeatTimer=null;
+function connect(tryIx){
   if(!S.room) return;
-  connected=false; mq=null;
-  setPill("connecting…",false);
-  clearTimeout(raceTimer); clearInterval(heartbeatTimer);
-  raceClients.forEach(c=>{ try{ c.removeAllListeners(); c.end(true); }catch(e){} });
-  raceClients=[];
-  BROKERS.forEach(url=>{
-    let c; try{ c = mqtt.connect(url,{clientId:"pd_"+S.room+"_"+S.role+"_"+Math.random().toString(36).slice(2,8),
-      clean:true, connectTimeout:6000, reconnectPeriod:0, keepalive:30}); }catch(e){ return; }
-    raceClients.push(c);
-    c.on("connect",()=>onBrokerWon(c));
-    c.on("error",()=>{});
+  tryIx = tryIx||0;
+  if(tryIx===0){ connected=false; mq=null; setPill("connecting…",false); clearInterval(heartbeatTimer); }
+  clearTimeout(connectTimer);
+  if(tryIx>=BROKERS.length){
+    setPill(sawEverConnected?"offline — answers still saved":"struggling to connect — try switching wifi/data",false);
+    connectTimer=setTimeout(()=>connect(0),4000);
+    return;
+  }
+  let c; try{ c = mqtt.connect(BROKERS[tryIx],{clientId:"pd_"+S.room+"_"+S.role+"_"+Math.random().toString(36).slice(2,8),
+    clean:true, connectTimeout:6000, reconnectPeriod:0, keepalive:30}); }catch(e){ connect(tryIx+1); return; }
+  let settled=false;
+  connectTimer=setTimeout(()=>{ if(!settled){ settled=true; try{ c.removeAllListeners(); c.end(true); }catch(e){} connect(tryIx+1); } },5000);
+  c.on("connect",()=>{
+    if(settled) return; settled=true; clearTimeout(connectTimer);
+    mq=c; connected=true; sawEverConnected=true; setPill("● synced",true);
+    let gotOwn=false;
+    c.subscribe(TOPIC(S.room,other(S.role)),{qos:1});
+    c.subscribe(TOPIC(S.room,S.role),{qos:1});             // recover own cloud state
+    c.on("message",(t,msg)=>handleMessage(t,msg,gotOwn,v=>gotOwn=v));
+    c.on("close",()=>{ if(mq===c){ connected=false; mq=null; clearInterval(heartbeatTimer); setPill("reconnecting…",false); connect(0); } });
+    setTimeout(()=>{ publish(); },1200);
+    heartbeatTimer=setInterval(()=>{ if(connected) publish(); },20000);
+    sweepOtherBrokers(tryIx);
   });
-  raceTimer=setTimeout(()=>{
-    if(!connected){ setPill(sawEverConnected?"offline — answers still saved":"struggling to connect — try switching wifi/data",false); connect(); }
-  },7000);
+  c.on("error",()=>{ if(!settled){ settled=true; clearTimeout(connectTimer); try{ c.removeAllListeners(); c.end(true); }catch(e){} connect(tryIx+1); } });
 }
-function onBrokerWon(client){
-  if(mq){ try{ client.end(true); }catch(e){} return; }   // a winner was already chosen this round
-  mq=client; connected=true; sawEverConnected=true;
-  clearTimeout(raceTimer);
-  raceClients.filter(c=>c!==client).forEach(c=>{ try{ c.removeAllListeners(); c.end(true); }catch(e){} });
-  setPill("● synced",true);
-  let gotOwn=false;
-  mq.subscribe(TOPIC(S.room,other(S.role)),{qos:1});
-  mq.subscribe(TOPIC(S.room,S.role),{qos:1});             // recover own cloud state
-  setTimeout(()=>{ publish(); },1200);
-  mq.on("message",(t,msg)=>{
-    let d; try{ d=JSON.parse(msg.toString()); }catch(e){ return; }
-    if(!d||d.v!==1) return;
-    if(t===TOPIC(S.room,S.role)){
-      if(d.self===myTag) return;                          // echo of my own publish
-      mergeInto(S.mine,d.ans||{}); mergeInto(S.myCom,d.com||{});
-      if(!gotOwn){ gotOwn=true; store(); refresh(false); }
-      return;
-    }
-    const beforeA=countAns(S.theirs), beforeC=JSON.stringify(S.theirCom[curQ()]||null);
-    const chAns = mergeInto(S.theirs, d.ans||{});
-    mergeInto(S.theirCom, d.com||{});
-    if(Array.isArray(d.typing)) theirTyping=d.typing;
-    store();
-    const cur=curQ();
-    const revealNow = chAns && S.mine[cur]!==undefined && S.theirs[cur]!==undefined;
-    if(revealNow) toast(`💌 ${partner().label} just answered!`);
-    refresh(countAns(S.theirs)!==beforeA || chAns || beforeC!==JSON.stringify(S.theirCom[cur]||null));
+function sweepOtherBrokers(primaryIx){
+  sweepClients.forEach(c=>{ try{ c.removeAllListeners(); c.end(true); }catch(e){} });
+  sweepClients=[];
+  BROKERS.forEach((url,ix)=>{
+    if(ix===primaryIx) return;
+    let c; try{ c = mqtt.connect(url,{clientId:"pdsweep_"+S.room+"_"+S.role+"_"+Math.random().toString(36).slice(2,8),
+      clean:true, connectTimeout:5000, reconnectPeriod:0}); }catch(e){ return; }
+    sweepClients.push(c);
+    let gotOwn=false;
+    c.on("connect",()=>{
+      c.subscribe(TOPIC(S.room,other(S.role)),{qos:1});
+      c.subscribe(TOPIC(S.room,S.role),{qos:1});
+    });
+    c.on("message",(t,msg)=>handleMessage(t,msg,gotOwn,v=>gotOwn=v));
+    c.on("error",()=>{});
+    setTimeout(()=>{ try{ c.removeAllListeners(); c.end(true); }catch(e){} },3000);   // plenty of time for retained delivery
   });
-  mq.on("close",()=>{
-    if(mq===client){ connected=false; mq=null; clearInterval(heartbeatTimer); setPill("reconnecting…",false); connect(); }
-  });
-  heartbeatTimer=setInterval(()=>{ if(connected) publish(); },20000);
+}
+function handleMessage(t,msg,gotOwn,setGotOwn){
+  let d; try{ d=JSON.parse(msg.toString()); }catch(e){ return; }
+  if(!d||d.v!==1) return;
+  if(t===TOPIC(S.room,S.role)){
+    if(d.self===myTag) return;                          // echo of my own publish
+    mergeInto(S.mine,d.ans||{}); mergeInto(S.myCom,d.com||{});
+    if(!gotOwn){ setGotOwn(true); store(); refresh(false); }
+    return;
+  }
+  const beforeA=countAns(S.theirs), beforeC=JSON.stringify(S.theirCom[curQ()]||null);
+  const chAns = mergeInto(S.theirs, d.ans||{});
+  mergeInto(S.theirCom, d.com||{});
+  if(Array.isArray(d.typing)) theirTyping=d.typing;
+  store();
+  const cur=curQ();
+  const revealNow = chAns && S.mine[cur]!==undefined && S.theirs[cur]!==undefined;
+  if(revealNow) toast(`💌 ${partner().label} just answered!`);
+  refresh(countAns(S.theirs)!==beforeA || chAns || beforeC!==JSON.stringify(S.theirCom[cur]||null));
 }
 const myTag = Math.random().toString(36).slice(2,10);
 function mergeInto(dst,src){
@@ -646,7 +663,7 @@ function compassSVG(me,her){
   const P=(pt)=>[210+pt[0]*19, 210-pt[1]*19];
   const img=(pt,rk)=>{ if(!pt)return""; const [x,y]=P(pt); const r=ROLES[rk];
     return `<circle cx="${x}" cy="${y}" r="15" fill="#fff" stroke="#1c1c1c" stroke-width="2.5"/>
-      <image href="${r.img}" x="${x-13}" y="${y-13}" width="26" height="26" clip-path="circle(13px at 13px 13px)" preserveAspectRatio="xMidYMid slice"/>`;};
+      <image href="${r.img}" xlink:href="${r.img}" x="${x-13}" y="${y-13}" width="26" height="26" clip-path="circle(13px at 13px 13px)" preserveAspectRatio="xMidYMid slice"/>`;};
   let line="";
   if(me&&her){ const a=P(me),b=P(her);
     line=`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#6b3fbf" stroke-width="2.5" stroke-dasharray="6 5"/>`; }
