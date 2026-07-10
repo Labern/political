@@ -11,7 +11,7 @@
 <style>
 /* ── design tokens — cartoon sticker / rainbow style ────────────── */
 :root{
-  --paper:#fff9e8; --card:#ffffff; --ink:#1c1c1c; --faint:#6b6357;
+  --paper:#fff9e8; --card:#ffffff; --ink:#1c1c1c; --faint:#4a433c;
   --line:#1c1c1c; --hard:4px 5px 0 rgba(28,28,28,.9); --hard-sm:3px 3px 0 rgba(28,28,28,.85);
   --rb-red:#e8433f; --rb-orange:#f2792f; --rb-yellow:#f4c93c; --rb-green:#57a94e; --rb-blue:#3a7de0; --rb-purple:#6b3fbf;
   --rainbow:linear-gradient(90deg,var(--rb-red),var(--rb-orange),var(--rb-yellow),var(--rb-green),var(--rb-blue),var(--rb-purple));
@@ -36,17 +36,13 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;opacity:.07;pointer-eve
 #app{max-width:520px;margin:0 auto;padding:12px 14px 44px}
 
 /* header */
-header{display:flex;align-items:center;justify-content:space-between;gap:8px 6px;padding:8px 2px 10px;flex-wrap:wrap}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 2px 10px}
 .wordmark{font-weight:bold;font-size:1.05rem;letter-spacing:.03em;color:#fff;
   -webkit-text-stroke:1.2px var(--ink);text-shadow:2.5px 2.5px 0 var(--ink);transform:rotate(-1.5deg)}
 #connpill{font-size:.7rem;color:var(--ink);border:2.5px solid var(--ink);border-radius:99px;padding:3px 10px;
   background:#fff;box-shadow:var(--hard-sm);white-space:nowrap}
 #connpill.on{background:#d7f2cf}
 #connpill.hide{display:none}
-#partnerpill{font-size:.7rem;color:var(--faint);border:2.5px solid var(--ink);border-radius:99px;padding:3px 10px;
-  background:#fff;box-shadow:var(--hard-sm);white-space:nowrap;font-family:var(--font-read);font-weight:600}
-#partnerpill.on{background:#d7f2cf;color:var(--ink)}
-#partnerpill.hide{display:none}
 #linksbtn{font-size:.7rem;font-weight:bold;color:var(--ink);border:2.5px solid var(--ink);border-radius:99px;
   padding:3px 10px;background:#fffbe0;box-shadow:var(--hard-sm);white-space:nowrap;cursor:pointer;font-family:var(--font-read)}
 #linksbtn.hide{display:none}
@@ -108,7 +104,6 @@ img.lemon{object-position:50% 46%}
 .chip{display:inline-block;font-size:.8rem;font-weight:600;font-family:var(--font-read);padding:6px 10px;border-radius:99px;border:2.5px solid var(--ink)}
 .chip.a0{background:#ffd7d5}.chip.a1{background:#ffe4c9}.chip.a2{background:#d5eccf}.chip.a3{background:#b8e4b5}
 .chip.wait{background:#f1ece0;border-style:dashed;font-weight:normal;font-style:italic;color:var(--faint)}
-.sendstate{font-size:.68rem;color:var(--faint);margin-top:4px;font-family:var(--font-read)}
 .verdict{text-align:center;font-size:.95rem;font-weight:bold;width:fit-content;margin:12px auto;
   background:rgba(255,255,255,.94);border:2.5px solid var(--ink);border-radius:99px;padding:7px 16px;box-shadow:var(--hard-sm)}
 .verdict.agree{color:var(--agree)}
@@ -183,9 +178,8 @@ footer a{color:inherit}
 <div id="app">
   <header>
     <div class="wordmark">🍋 POLITICAL DISCUSSION 🫧</div>
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:6px">
       <button id="linksbtn" class="hide" title="see and share both links">🔗 links</button>
-      <div id="partnerpill" class="hide">…</div>
       <div id="connpill" class="hide">connecting…</div>
     </div>
   </header>
@@ -270,8 +264,8 @@ function connect(tryIx){
   connectTimer=setTimeout(()=>{ if(!settled){ settled=true; try{ c.removeAllListeners(); c.end(true); }catch(e){} connect(tryIx+1); } },5000);
   c.on("connect",()=>{
     if(settled) return; settled=true; clearTimeout(connectTimer);
-    mq=c; connected=true; sawEverConnected=true; setPill("● synced",true);
-    theirOnline=false; theirLastSeen=0; setPartnerPill();  // presence is only meaningful once we hear from them fresh
+    mq=c; connected=true; sawEverConnected=true;
+    theirOnline=false; theirLastSeen=0; refreshConnPill();  // presence is only meaningful once we hear from them fresh
     let gotOwn=false;
     c.subscribe(TOPIC(S.room,other(S.role)),{qos:1});
     c.subscribe(TOPIC(S.room,S.role),{qos:1});             // recover own cloud state
@@ -281,12 +275,12 @@ function connect(tryIx){
       if(t===PRESENCE_TOPIC(S.room,other(S.role))){ handlePresence(msg); return; }
       handleMessage(t,msg,gotOwn,v=>gotOwn=v);
     });
-    c.on("close",()=>{ if(mq===c){ connected=false; mq=null; clearInterval(heartbeatTimer); setPill("reconnecting…",false); setPartnerPill(); connect(0); } });
+    c.on("close",()=>{ if(mq===c){ connected=false; mq=null; clearInterval(heartbeatTimer); setPill("reconnecting…",false); connect(0); } });
     setTimeout(()=>{ publish(); },1200);
     heartbeatTimer=setInterval(()=>{
       if(!connected) return;
       publish(); publishPresence();      // presence is retained but NOT sticky — republish so theirLastSeen keeps meaning "confirmed recently", not "confirmed once, ever"
-      if(theirOnline && Date.now()-theirLastSeen>PRESENCE_STALE_MS){ theirOnline=false; setPartnerPill(); }
+      if(theirOnline && Date.now()-theirLastSeen>PRESENCE_STALE_MS){ theirOnline=false; refreshConnPill(); }
     },10000);
     sweepOtherBrokers(tryIx);
   });
@@ -294,15 +288,11 @@ function connect(tryIx){
 }
 function handlePresence(msg){
   let d; try{ d=JSON.parse(msg.toString()); }catch(e){ return; }
-  theirOnline=!!(d&&d.online); theirLastSeen=Date.now(); setPartnerPill();
+  theirOnline=!!(d&&d.online); theirLastSeen=Date.now(); refreshConnPill();
 }
-function setPartnerPill(){
-  const el=$("#partnerpill"); if(!el||!S.role) return;
-  if(!connected){ el.classList.add("hide"); return; }
-  el.classList.remove("hide");
-  const p=partner();
-  el.textContent=(theirOnline?"● ":"○ ")+p.label+(theirOnline?" online":" offline");
-  el.classList.toggle("on",theirOnline);
+function refreshConnPill(){                 // simple swap: "● synced" becomes "● Online" once the partner is confirmed online
+  if(!connected) return;                     // connecting/reconnecting/offline text is set directly where those happen
+  setPill(theirOnline?"● Online":"● synced", true);
 }
 function sweepOtherBrokers(primaryIx){
   sweepClients.forEach(c=>{ try{ c.removeAllListeners(); c.end(true); }catch(e){} });
@@ -557,7 +547,7 @@ function render(){
     const r=ROLES[roleKey], isMe=roleKey===S.role;
     const a = isMe? my : th;
     let pick;
-    if(isMe) pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>${connected?"":`<div class="sendstate">⏳ saved — not sent yet</div>`}` : `<span class="chip wait">pick below…</span>`;
+    if(isMe) pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">pick below…</span>`;
     else if(my===undefined) pick = a!==undefined? `<span class="chip wait">🔒 answered — yours first!</span>` : `<span class="chip wait">…thinking</span>`;
     else pick = a!==undefined? `<span class="chip a${a[0]}">${LABELS[a[0]]}</span>` : `<span class="chip wait">waiting for ${r.label}…</span>`;
     return `<div class="side ${roleKey} ${isMe?"me":""}" id="side${roleKey}">${avatar(roleKey,"av-sm")}
