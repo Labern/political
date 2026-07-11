@@ -11,8 +11,10 @@ https://labern.github.io/political/ · repo `Labern/political`.
 
 ### 1.1 Serverless two-person realtime sync (no accounts, no backend)
 - **Transport:** MQTT over WSS on public brokers, mqtt.js v5 vendored
-  (`vendor/mqtt.min.js`, global `mqtt`). Primary `wss://broker.emqx.io:8084/mqtt`,
-  failover `wss://broker.hivemq.com:8884/mqtt` (rotate after 4 consecutive closes).
+  (`vendor/mqtt.min.js`, global `mqtt`). Broker list EMQX `:8084` → HiveMQ `:8884`
+  → Mosquitto `test.mosquitto.org:8081`, tried in a **fixed deterministic order,
+  never a race** — see §1.6 for why (this superseded an earlier "keep whichever
+  connects fastest" approach that caused a real data-visibility incident).
 - **State model:** one **retained** message per person per room:
   topic `polduo1/<roomId>/<role>`, payload
   `{v, self, role, ans:{key:[value,ts]}, com:{key:[text,ts]}, typing:[key,ts], done, updated}`.
@@ -95,6 +97,53 @@ https://labern.github.io/political/ · repo `Labern/political`.
   preflight-dead REST backends (jsonblob 404s OPTIONS, kvdb needs email
   verification, extendsclass 500s OPTIONS → why MQTT won).
 
+### 1.6 The multi-broker incident — read before touching sync (paid in blood)
+The single hardest lesson of the project. **Retained state on EMQX, HiveMQ and
+Mosquitto are THREE SEPARATE STORES** — a message retained on one is invisible on
+the others. They are reachability alternates, NOT interchangeable mirrors.
+- **What broke:** a version that connected to all brokers in parallel and kept
+  whichever answered *fastest*. Sounds robust; was a production incident. Two
+  people's sessions could silently land on different, mutually-blind brokers —
+  each showing "synced" while seeing none of the other's answers/typing. The user
+  reported it as "you just made me lose access to all her answers" and "it just
+  says synced. Not online." Nothing was ever deleted — it was being read from the
+  wrong place.
+- **Fix, two parts:** (1) try brokers in a **fixed order on every device**, so
+  everyone converges on the same primary. (2) **`sweepOtherBrokers()`** — on every
+  connect, briefly (~3 s) also subscribe on the non-primary brokers and merge in
+  anything found (same newest-wins merge), then close those probes. This is the
+  self-healing layer that *recovers* a room already split across brokers, and is
+  what got "her" answers back with zero manual steps. Keep the sweep even though
+  the deterministic order makes splits rare — it converts the whole bug class into
+  a non-issue. Verified by planting state on a non-primary broker and confirming a
+  fresh connect recovers it in <1 s.
+- **Presence needs the SAME resilience — and it was forgotten once.** Online status
+  lives on a **separate topic** `polduo1/<room>/<role>/presence` (never mixed with
+  answer data). It uses MQTT **Last Will (LWT)**: register `{online:false}` at
+  connect so the broker auto-publishes offline on an unclean drop (tab killed,
+  network dies) — no polling. But the first cut only subscribed presence on the
+  *primary* connection, so after the broker-mismatch fix answers recovered via the
+  sweep while presence stayed stuck on "synced, never Online." Fix: route presence
+  through the sweep too.
+- **Presence republish bug (caught in review):** publishing `{online:true}` ONCE at
+  connect makes any staleness-timeout check meaningless — `lastSeen` never advances,
+  so a genuinely-present partner flips to "offline" after the timeout. Must
+  **re-publish presence on the periodic heartbeat** (~every 10 s) so "last seen"
+  means "confirmed recently", plus an explicit `{online:false/true}` on
+  tab-hide/show for an instant courtesy signal on top of LWT.
+- **Newest-wins timestamp guard on presence** so a stale sweep result can't override
+  a fresher signal from the primary.
+
+### 1.7 Process invariant — "done" means the user can see it LIVE
+Not "verified locally", not "committed", not "pushed". For this app the finish line
+is **deployed AND confirmed serving on the real URL** (`labern.github.io/political`).
+Cause of a real "it isn't working" round: several features were built + locally
+tested but not deployed, so the user's live site still showed the old version. The
+deploy-and-confirm-live step is part of every task, not an afterthought; never
+report "done"/"fixed" for anything the user can't yet see. (Standard deploy: push
+to `main`; Pages serves repo root; poll `curl` for a marker string in the live HTML
+before declaring it live — GitHub Pages lags the push by ~30–90 s.)
+
 ---
 
 ## §2 DESIGN — the rainbow-sticker / comic recipe ("for fun" skin)
@@ -126,14 +175,16 @@ Order matters: purple innermost at the bottom, red outermost — matches the sti
 
 ### 2.3 Sticker components
 - **Cards/buttons:** white bg, `3px solid var(--ink)`, big radius (16–22px),
-  **hard offset shadow** (`--hard`), alternating ±0.4° rotation. Press effect =
-  `translate(2px,2px)` + shadow collapse to 1px (feels physically clicky).
+  **hard offset shadow** (`--hard`). Press effect = `translate(2px,2px)` + shadow
+  collapse to 1px (feels physically clicky). ~~Alternating ±0.4° rotation.~~
+  **Superseded 2026-07-11:** the tilt is GONE — see §2.4.
 - **Readability rule (learned from user feedback):** nothing sits bare on the
   rainbow. Body text goes in white sticker panels; small floating text gets
   translucent white pills (`rgba(255,255,255,.88)`, radius 99px). Generous vertical
   margins (~18px between blocks) — don't squeeze.
 - **Comic headline:** white text + `-webkit-text-stroke:1.6px ink` +
-  `text-shadow:3px 3px 0 ink`, slow ±1.2° wobble keyframes.
+  `text-shadow:3px 3px 0 ink`. ~~Slow ±1.2° wobble keyframes.~~ **Wobble removed
+  2026-07-11** (see §2.4).
 - **Avatars:** real images, `border-radius:50%`, ink border + `0 0 0 4px #fff`
   sticker ring + hard shadow, gentle bob animation (offset delays per character);
   `object-position` tuned per image to center the face.
@@ -146,6 +197,35 @@ Order matters: purple innermost at the bottom, red outermost — matches the sti
   stroke, dashed purple line between the two people + "you two are X units apart 💞".
 
 ### 2.4 Spirit
-Cartoonish and crazy but legible: everything slightly tilted, nothing perfectly
-aligned, hard shadows everywhere, emoji as punctuation (🍋🫧💌✨), playful microcopy
-("interesting… time to talk 👀"). One page, no build step, no external fonts/CDNs.
+Cartoonish and crazy but legible: hard shadows everywhere, emoji as punctuation
+(🍋🫧💌✨), playful microcopy ("interesting… time to talk 👀"). One page, no build
+step, no external fonts/CDNs.
+- **Tilt calibration (2026-07-11):** an earlier version tilted nearly *everything*
+  — cards (alternating), wordmark, animated h1 wobble, section chips, the
+  proposition card, both side cards. The user's read: **"overdone… remove it."**
+  Now everything is level; the sticker feel comes entirely from **hard offset
+  shadows + thick ink borders + rainbow**, which is plenty. Lesson: the tilt is a
+  seasoning, not the dish — one or two elements at most, and it accumulates into
+  chaos fast when many stacked elements each carry their own angle. Kept: the
+  gentle avatar float (`bob`) and confetti spin. (The user separately called an
+  earlier, less-tilted state a "masterpiece" — the sticker shadows/borders are what
+  he loved, not the slant.)
+
+### 2.5 Other UX decisions worth keeping
+- **"Discuss on WhatsApp" pre-fills context.** Per-question button opens
+  `wa.me/?text=` with a minimal recap: `Q<n> — "<question>"` then each person's
+  answer with their emoji. The person's own take is their *next* manual message.
+  Works in the WhatsApp in-app browser + native app; needs no reply-parsing (this
+  app can't read WhatsApp, only seed a draft).
+- **Mobile 100%-width:** the header's right-side pill cluster (links + Online) had
+  no wrap and pushed ~28px past the column at phone width → sideways scroll / page
+  not locking to viewport. Fix: `flex-wrap:wrap` on the header AND that cluster,
+  plus `html,body{width:100%;max-width:100%;overflow-x:hidden}`. Diagnose mobile
+  overflow without true device emulation by temporarily shrinking `#app` to ~360px
+  and listing children whose `getBoundingClientRect().right` exceeds it.
+- **Degree-aware agreement (DESIGNED, not yet built — user said "No" for now,
+  2026-07-11).** The per-question verdict currently only checks *exact equality*, so
+  "Agree vs Strongly agree" (same side!) reads identical to a real clash. Planned
+  5-state, side-first-then-distance verdict (exact / same-side-different-degree /
+  opposite-adjacent / opposite-clear / polar), color-coded, matching the taxonomy
+  already live in the results-page `computeAgreementStats()`. Revisit only if asked.
